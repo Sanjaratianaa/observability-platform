@@ -1,3 +1,5 @@
 spring:
   application:
     name: platform
+  elasticsearch:
+    uris: http://localhost:9200
