@@ -2,4 +2,9 @@ spring:
   application:
     name: platform
   elasticsearch:
-    uris: http://localhost:9200
+    uris: https://localhost:9200
+    username: elastic
+    password: "*rxzuHQbmzo0PRQw+naV"
+
+server:
+  port: 8081
