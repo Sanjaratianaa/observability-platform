@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.repository.LogEntryRepository;
+import valueit.observability.platform.service.*;
 
 import java.util.List;
 
@@ -12,9 +13,30 @@ import java.util.List;
 public class LogIngestionController {
 
     private final LogEntryRepository logEntryRepository;
+    private final LogParsingService logParsingService;
+    private final AnomalyDetectionService anomalyDetectionService;
 
-    public LogIngestionController(LogEntryRepository logEntryRepository) {
+    public LogIngestionController(LogEntryRepository logEntryRepository,
+                                  LogParsingService logParsingService,
+                                  AnomalyDetectionService anomalyDetectionService) {
         this.logEntryRepository = logEntryRepository;
+        this.logParsingService = logParsingService;
+        this.anomalyDetectionService = anomalyDetectionService;
+    }
+
+    @PostMapping("/raw")
+    public ResponseEntity<LogEntry> ingestRaw(@RequestBody String rawLog) {
+        LogEntry entry = logParsingService.parse(rawLog);
+        LogEntry saved = logEntryRepository.save(entry);
+
+        List<Anomaly> anomalies = anomalyDetectionService.analyze(saved);
+        if (!anomalies.isEmpty()) {
+            anomalies.forEach(a ->
+                    System.out.println("Anomalie détectée : " + a.getDescription() + " [" + a.getSeverity() + "]")
+            );
+        }
+
+        return ResponseEntity.ok(saved);
     }
 
     @PostMapping
