@@ -1,5 +1,13 @@
 package valueit.observability.platform.parser;
 
+import org.springframework.stereotype.Component;
+import valueit.observability.platform.model.LogEntry;
+
+import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Component
 public class ApacheLogParser implements LogParser {
 
     private static final Pattern APACHE_PATTERN = Pattern.compile(

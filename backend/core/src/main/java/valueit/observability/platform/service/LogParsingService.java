@@ -2,13 +2,15 @@ package valueit.observability.platform.service;
 
 import org.springframework.stereotype.Service;
 import valueit.observability.platform.model.LogEntry;
+import valueit.observability.platform.parser.LogParser;
+import valueit.observability.platform.parser.LogParserException;
 
 import java.util.List;
 
 @Service
 public class LogParsingService {
 
-    private finale List<LogParser> parsers;
+    private final List<LogParser> parsers;
 
     public LogParsingService(List<LogParser> parsers) {
         this.parsers = parsers;

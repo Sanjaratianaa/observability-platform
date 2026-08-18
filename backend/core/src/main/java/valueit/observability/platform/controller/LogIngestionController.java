@@ -1,7 +1,10 @@
 package valueit.observability.platform.controller;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import valueit.observability.platform.anomaly.Anomaly;
+import valueit.observability.platform.anomaly.IncidentDeduplicator;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
@@ -15,13 +18,16 @@ public class LogIngestionController {
     private final LogEntryRepository logEntryRepository;
     private final LogParsingService logParsingService;
     private final AnomalyDetectionService anomalyDetectionService;
+    private final IncidentDeduplicator incidentDeduplicator;
 
     public LogIngestionController(LogEntryRepository logEntryRepository,
                                   LogParsingService logParsingService,
-                                  AnomalyDetectionService anomalyDetectionService) {
+                                  AnomalyDetectionService anomalyDetectionService,
+                                  IncidentDeduplicator incidentDeduplicator) {
         this.logEntryRepository = logEntryRepository;
         this.logParsingService = logParsingService;
         this.anomalyDetectionService = anomalyDetectionService;
+        this.incidentDeduplicator = incidentDeduplicator;
     }
 
     @PostMapping("/raw")
@@ -30,10 +36,15 @@ public class LogIngestionController {
         LogEntry saved = logEntryRepository.save(entry);
 
         List<Anomaly> anomalies = anomalyDetectionService.analyze(saved);
-        if (!anomalies.isEmpty()) {
-            anomalies.forEach(a ->
-                    System.out.println("Anomalie détectée : " + a.getDescription() + " [" + a.getSeverity() + "]")
+        List<Anomaly> newAnomalies = anomalies.stream()
+                .filter(incidentDeduplicator::isNew)
+                .toList();
+
+        if (!newAnomalies.isEmpty()) {
+            newAnomalies.forEach(a ->
+                    System.out.println("NOUVEL INCIDENT : " + a.getDescription() + " [" + a.getSeverity() + "]")
             );
+            // TODO : ici on déclenchera Teams + Jira
         }
 
         return ResponseEntity.ok(saved);

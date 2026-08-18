@@ -8,3 +8,7 @@ spring:
 
 server:
   port: 8081
+
+notification:
+  teams:
+    webhook-url: ${TEAMS_WEBHOOK_URL:https://placeholder.webhook.office.com/not-configured}

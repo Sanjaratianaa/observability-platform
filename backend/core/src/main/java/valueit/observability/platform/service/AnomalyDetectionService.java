@@ -1,6 +1,7 @@
 package valueit.observability.platform.service;
 
 import org.springframework.stereotype.Service;
+import valueit.observability.platform.anomaly.Anomaly;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.anomaly.AnomalyDetector;
 
