@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import valueit.observability.platform.incident.Incident;
+import valueit.observability.platform.incident.IncidentEvent;
 
 @Component
 public class TeamsNotifier implements Notifier {
@@ -23,7 +24,11 @@ public class TeamsNotifier implements Notifier {
 
 
     @Override
-    public void notify(Incident incident) {
+    public void notify(Incident incident, IncidentEvent event) {
+        if (event != IncidentEvent.CREATED) {
+            return;
+        }
+
         if (webhookUrl.contains("not-configured")) {
             System.out.println("[Teams] Webhook non configuré, notification ignorée.");
             return;

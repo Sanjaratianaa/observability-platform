@@ -4,9 +4,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import valueit.observability.platform.incident.Incident;
+import valueit.observability.platform.incident.IncidentEvent;
+import valueit.observability.platform.repository.IncidentRepository;
 
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Component
 public class JiraNotifier implements Notifier {
@@ -16,34 +19,46 @@ public class JiraNotifier implements Notifier {
     private final String apiToken;
     private final String projectKey;
     private final RestClient restClient;
+    private final IncidentRepository incidentRepository;
+    private final ObjectMapper objectMapper;
 
     public JiraNotifier(
             @Value("${notification.jira.base-url}") String baseUrl,
             @Value("${notification.jira.email}") String email,
             @Value("${notification.jira.api-token}") String apiToken,
-            @Value("${notification.jira.project-key}") String projectKey) {
+            @Value("${notification.jira.project-key}") String projectKey,
+            IncidentRepository incidentRepository,
+            ObjectMapper objectMapper) {
         this.baseUrl = baseUrl;
         this.email = email;
         this.apiToken = apiToken;
         this.projectKey = projectKey;
+        this.incidentRepository = incidentRepository;
+        this.objectMapper = objectMapper;
         this.restClient = RestClient.create();
     }
 
     @Override
     public boolean supports(Incident incident) {
-        // ROUTAGE : on ne crée un ticket QUE pour les incidents graves.
-        // Les LOW/MEDIUM vont sur Teams mais n'encombrent pas Jira.
         String s = incident.getSeverity();
         return "HIGH".equals(s) || "CRITICAL".equals(s);
     }
 
     @Override
-    public void notify(Incident incident) {
+    public void notify(Incident incident, IncidentEvent event) {
         if (baseUrl.contains("not-configured")) {
-            System.out.println("[Jira] Non configuré, création de ticket ignorée.");
+            System.out.println("[Jira] Non configuré, action ignorée.");
             return;
         }
+        // IDEMPOTENCE : ticket déjà existant → on commente. Sinon → on crée.
+        if (incident.getJiraTicketKey() != null) {
+            addComment(incident);
+        } else {
+            createTicket(incident);
+        }
+    }
 
+    private void createTicket(Incident incident) {
         String summary = "[" + incident.getSeverity() + "] "
                 + incident.getType() + " sur " + incident.getSource();
 
@@ -71,12 +86,34 @@ public class JiraNotifier implements Notifier {
                     .retrieve()
                     .body(String.class);
 
-            System.out.println("[Jira] Ticket créé pour l'incident " + incident.getType()
-                    + " → " + response);
-            // TODO (mise à jour) : parser la clé du ticket dans la réponse
-            //  et faire incident.setJiraTicketKey(...) + persister.
+            String key = objectMapper.readTree(response).path("key").asText(null);
+            if (key != null) {
+                incident.setJiraTicketKey(key);
+                incidentRepository.save(incident);   // ← on MÉMORISE la clé
+            }
+            System.out.println("[Jira] Ticket créé : " + key);
         } catch (Exception e) {
             System.err.println("[Jira] Erreur création ticket : " + e.getMessage());
+        }
+    }
+
+    private void addComment(Incident incident) {
+        String body = """
+                { "body": "Récurrence détectée — occurrence n°%d (dernière vue : %s)" }
+                """.formatted(incident.getOccurrenceCount(),
+                String.valueOf(incident.getLastSeen()));
+
+        try {
+            restClient.post()
+                    .uri(baseUrl + "/rest/api/2/issue/" + incident.getJiraTicketKey() + "/comment")
+                    .header("Authorization", "Basic " + basicAuth())
+                    .header("Content-Type", "application/json")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            System.out.println("[Jira] Commentaire ajouté à " + incident.getJiraTicketKey());
+        } catch (Exception e) {
+            System.err.println("[Jira] Erreur ajout commentaire : " + e.getMessage());
         }
     }
 

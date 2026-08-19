@@ -7,6 +7,7 @@ import valueit.observability.platform.incident.IncidentStatus;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.notification.NotificationHub;
 import valueit.observability.platform.repository.IncidentRepository;
+import valueit.observability.platform.incident.IncidentEvent;
 
 import java.time.Instant;
 import java.util.List;
@@ -44,8 +45,7 @@ public class IncidentService {
         incident.setSeverity(maxSeverity(incident.getSeverity(), anomaly.getSeverity()));
         incident.setDescription(anomaly.getDescription());
         Incident saved = incidentRepository.save(incident);
-        // THROTTLING : une récurrence ne re-notifie PAS (évite le spam).
-        // (plus tard : re-notifier seulement si la sévérité a escaladé)
+        notificationHub.dispatch(saved, IncidentEvent.RECURRED);  // ← Jira commentera, Teams se taira
         return saved;
     }
 
@@ -63,7 +63,7 @@ public class IncidentService {
         incident.setOccurrenceCount(1);
 
         Incident saved = incidentRepository.save(incident);
-        notificationHub.dispatch(saved);   // NOUVEL incident → on notifie tous les canaux compatibles
+        notificationHub.dispatch(saved, IncidentEvent.CREATED);
         return saved;
     }
 
