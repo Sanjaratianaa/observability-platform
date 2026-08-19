@@ -50,11 +50,40 @@ public class JiraNotifier implements Notifier {
             System.out.println("[Jira] Non configuré, action ignorée.");
             return;
         }
+
+        if (incident.getJiraTicketKey() == null) {
+            if (event == IncidentEvent.CREATED) {
+                createTicket(incident);
+            }
+            return;
+        }
+
         // IDEMPOTENCE : ticket déjà existant → on commente. Sinon → on crée.
-        if (incident.getJiraTicketKey() != null) {
-            addComment(incident);
-        } else {
-            createTicket(incident);
+        String message = switch (event) {
+            case RESOLVED -> "✅ Incident résolu via ChatOps.";
+            case RECURRED -> "🔁 Récurrence — occurrence n°" + incident.getOccurrenceCount()
+                    + " (dernière vue : " + incident.getLastSeen() + ")";
+            case CREATED  -> "Incident re-signalé.";
+        };
+        addComment(incident, message);
+    }
+
+    private void addComment(Incident incident, String message) {
+        String body = """
+            { "body": "%s" }
+            """.formatted(message.replace("\"", "'"));
+
+        try {
+            restClient.post()
+                    .uri(baseUrl + "/rest/api/2/issue/" + incident.getJiraTicketKey() + "/comment")
+                    .header("Authorization", "Basic " + basicAuth())
+                    .header("Content-Type", "application/json")
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+            System.out.println("[Jira] Commentaire ajouté à " + incident.getJiraTicketKey());
+        } catch (Exception e) {
+            System.err.println("[Jira] Erreur ajout commentaire : " + e.getMessage());
         }
     }
 

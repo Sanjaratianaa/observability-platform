@@ -74,4 +74,20 @@ public class IncidentService {
     private String maxSeverity(String a, String b) {
         return SEVERITY_ORDER.indexOf(a) >= SEVERITY_ORDER.indexOf(b) ? a : b;
     }
+
+    public Optional<Incident> acknowledge(String id) {
+        return incidentRepository.findById(id).map(incident -> {
+            incident.setStatus(IncidentStatus.ACKNOWLEDGED);
+            return incidentRepository.save(incident);
+        });
+    }
+
+    public Optional<Incident> resolve(String id) {
+        return incidentRepository.findById(id).map(incident -> {
+            incident.setStatus(IncidentStatus.RESOLVED);
+            Incident saved = incidentRepository.save(incident);
+            notificationHub.dispatch(saved, IncidentEvent.RESOLVED);  // ← propage aux canaux (Jira)
+            return saved;
+        });
+    }
 }
