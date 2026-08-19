@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 import valueit.observability.platform.anomaly.Anomaly;
 import valueit.observability.platform.anomaly.IncidentDeduplicator;
 import valueit.observability.platform.model.LogEntry;
+import valueit.observability.platform.notification.TeamsNotifier;
 import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
 
@@ -19,15 +20,18 @@ public class LogIngestionController {
     private final LogParsingService logParsingService;
     private final AnomalyDetectionService anomalyDetectionService;
     private final IncidentDeduplicator incidentDeduplicator;
+    private final TeamsNotifier teamsNotifier;
 
     public LogIngestionController(LogEntryRepository logEntryRepository,
                                   LogParsingService logParsingService,
                                   AnomalyDetectionService anomalyDetectionService,
-                                  IncidentDeduplicator incidentDeduplicator) {
+                                  IncidentDeduplicator incidentDeduplicator,
+                                  TeamsNotifier teamsNotifier) {
         this.logEntryRepository = logEntryRepository;
         this.logParsingService = logParsingService;
         this.anomalyDetectionService = anomalyDetectionService;
         this.incidentDeduplicator = incidentDeduplicator;
+        this.teamsNotifier = teamsNotifier;
     }
 
     @PostMapping("/raw")
@@ -41,10 +45,11 @@ public class LogIngestionController {
                 .toList();
 
         if (!newAnomalies.isEmpty()) {
-            newAnomalies.forEach(a ->
-                    System.out.println("NOUVEL INCIDENT : " + a.getDescription() + " [" + a.getSeverity() + "]")
-            );
-            // TODO : ici on déclenchera Teams + Jira
+            newAnomalies.forEach(a -> {
+                System.out.println("NOUVEL INCIDENT : " + a.getDescription() + " [" + a.getSeverity() + "]");
+                teamsNotifier.send(a);
+            });
+            // TODO : ici on déclenchera Jira
         }
 
         return ResponseEntity.ok(saved);
