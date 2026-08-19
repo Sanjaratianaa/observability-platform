@@ -12,3 +12,8 @@ server:
 notification:
   teams:
     webhook-url: ${TEAMS_WEBHOOK_URL:https://placeholder.webhook.office.com/not-configured}
+  jira:
+    base-url: ${JIRA_BASE_URL:https://not-configured}
+    email: ${JIRA_EMAIL:not-configured}
+    api-token: ${JIRA_API_TOKEN:not-configured}
+    project-key: ${JIRA_PROJECT_KEY:OPS}

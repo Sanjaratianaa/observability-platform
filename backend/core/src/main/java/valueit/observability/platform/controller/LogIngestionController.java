@@ -3,10 +3,7 @@ package valueit.observability.platform.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import valueit.observability.platform.anomaly.Anomaly;
-import valueit.observability.platform.anomaly.IncidentDeduplicator;
 import valueit.observability.platform.model.LogEntry;
-import valueit.observability.platform.notification.TeamsNotifier;
 import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
 
@@ -19,19 +16,16 @@ public class LogIngestionController {
     private final LogEntryRepository logEntryRepository;
     private final LogParsingService logParsingService;
     private final AnomalyDetectionService anomalyDetectionService;
-    private final IncidentDeduplicator incidentDeduplicator;
-    private final TeamsNotifier teamsNotifier;
+    private final IncidentService incidentService;
 
     public LogIngestionController(LogEntryRepository logEntryRepository,
                                   LogParsingService logParsingService,
                                   AnomalyDetectionService anomalyDetectionService,
-                                  IncidentDeduplicator incidentDeduplicator,
-                                  TeamsNotifier teamsNotifier) {
+                                  IncidentService incidentService) {
         this.logEntryRepository = logEntryRepository;
         this.logParsingService = logParsingService;
         this.anomalyDetectionService = anomalyDetectionService;
-        this.incidentDeduplicator = incidentDeduplicator;
-        this.teamsNotifier = teamsNotifier;
+        this.incidentService = incidentService;
     }
 
     @PostMapping("/raw")
@@ -39,18 +33,8 @@ public class LogIngestionController {
         LogEntry entry = logParsingService.parse(rawLog);
         LogEntry saved = logEntryRepository.save(entry);
 
-        List<Anomaly> anomalies = anomalyDetectionService.analyze(saved);
-        List<Anomaly> newAnomalies = anomalies.stream()
-                .filter(incidentDeduplicator::isNew)
-                .toList();
-
-        if (!newAnomalies.isEmpty()) {
-            newAnomalies.forEach(a -> {
-                System.out.println("NOUVEL INCIDENT : " + a.getDescription() + " [" + a.getSeverity() + "]");
-                teamsNotifier.send(a);
-            });
-            // TODO : ici on déclenchera Jira
-        }
+        anomalyDetectionService.analyze(saved)
+                .forEach(anomaly -> incidentService.handle(anomaly, saved));
 
         return ResponseEntity.ok(saved);
     }
