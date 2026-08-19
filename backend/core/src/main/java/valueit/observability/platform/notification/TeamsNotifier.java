@@ -3,10 +3,10 @@ package valueit.observability.platform.notification;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import valueit.observability.platform.anomaly.Anomaly;
+import valueit.observability.platform.incident.Incident;
 
 @Component
-public class TeamsNotifier {
+public class TeamsNotifier implements Notifier {
 
     private final RestClient restClient;
     private final String webhookUrl;
@@ -16,7 +16,14 @@ public class TeamsNotifier {
         this.restClient = RestClient.create();
     }
 
-    public void send(Anomaly anomaly) {
+    @Override
+    public boolean supports(Incident incident) {
+        return true;
+    }
+
+
+    @Override
+    public void notify(Incident incident) {
         if (webhookUrl.contains("not-configured")) {
             System.out.println("[Teams] Webhook non configuré, notification ignorée.");
             return;
@@ -31,18 +38,20 @@ public class TeamsNotifier {
                   "sections": [{
                     "facts": [
                       {"name": "Sévérité", "value": "%s"},
-                      {"name": "Type", "value": "%s"},
-                      {"name": "Détecté à", "value": "%s"}
+                      {"name": "Source", "value": "%s"},
+                      {"name": "Occurrences", "value": "%d"},
+                      {"name": "Première vue", "value": "%s"}
                     ]
                   }]
                 }
                 """.formatted(
-                severityToColor(anomaly.getSeverity()),
-                anomaly.getType(),
-                anomaly.getDescription().replace("\"", "'"),
-                anomaly.getSeverity(),
-                anomaly.getType(),
-                anomaly.getDetectedAt().toString()
+                severityToColor(incident.getSeverity()),
+                incident.getType(),
+                incident.getDescription().replace("\"", "'"),
+                incident.getSeverity(),
+                incident.getSource(),
+                incident.getOccurrenceCount(),
+                String.valueOf(incident.getFirstSeen())
         );
 
         try {
@@ -52,7 +61,7 @@ public class TeamsNotifier {
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
-            System.out.println("[Teams] Notification envoyée : " + anomaly.getType());
+            System.out.println("[Teams] Notification envoyée : " + incident.getType());
         } catch (Exception e) {
             System.err.println("[Teams] Erreur d'envoi : " + e.getMessage());
         }
