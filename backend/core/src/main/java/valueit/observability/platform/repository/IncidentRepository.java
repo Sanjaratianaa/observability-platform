@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface IncidentRepository extends ElasticsearchRepository<Incident, String> {
     Optional<Incident> findByFingerprintAndStatus(String fingerprint, IncidentStatus status);
     List<Incident> findByStatus(IncidentStatus status);
+    List<Incident> findBySeverity(String severity);
 }
