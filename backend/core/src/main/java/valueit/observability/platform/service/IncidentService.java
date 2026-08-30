@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import valueit.observability.platform.anomaly.Anomaly;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentStatus;
+import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.notification.NotificationHub;
 import valueit.observability.platform.repository.IncidentRepository;
@@ -19,7 +20,6 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final NotificationHub notificationHub;
 
-    private static final List<String> SEVERITY_ORDER = List.of("LOW", "MEDIUM", "HIGH", "CRITICAL");
 
     public IncidentService(IncidentRepository incidentRepository, NotificationHub notificationHub) {
         this.incidentRepository = incidentRepository;
@@ -29,23 +29,25 @@ public class IncidentService {
     public Incident handle(Anomaly anomaly, LogEntry sourceLog) {
         String fingerprint = buildFingerprint(anomaly, sourceLog);
 
-        // CORRÉLATION : existe-t-il déjà un incident OUVERT pour cette empreinte ?
         Optional<Incident> existing =
                 incidentRepository.findByFingerprintAndStatus(fingerprint, IncidentStatus.OPEN);
 
         if (existing.isPresent()) {
-            return updateRecurring(existing.get(), anomaly);   // récurrence
+            return updateRecurring(existing.get(), anomaly, sourceLog);
         }
-        return createNew(fingerprint, anomaly, sourceLog);     // nouvel incident
+        return createNew(fingerprint, anomaly, sourceLog);
     }
 
-    private Incident updateRecurring(Incident incident, Anomaly anomaly) {
+    private Incident updateRecurring(Incident incident, Anomaly anomaly, LogEntry sourceLog) {
         incident.setLastSeen(Instant.now());
         incident.setOccurrenceCount(incident.getOccurrenceCount() + 1);
-        incident.setSeverity(maxSeverity(incident.getSeverity(), anomaly.getSeverity()));
+        incident.setSeverity(incident.getSeverity().max(anomaly.getSeverity()));
         incident.setDescription(anomaly.getDescription());
+        if (sourceLog.getId() != null) {
+            incident.addRelatedLogId(sourceLog.getId());
+        }
         Incident saved = incidentRepository.save(incident);
-        notificationHub.dispatch(saved, IncidentEvent.RECURRED);  // ← Jira commentera, Teams se taira
+        notificationHub.dispatch(saved, IncidentEvent.RECURRED);
         return saved;
     }
 
@@ -61,6 +63,9 @@ public class IncidentService {
         incident.setFirstSeen(now);
         incident.setLastSeen(now);
         incident.setOccurrenceCount(1);
+        if (sourceLog.getId() != null) {
+            incident.addRelatedLogId(sourceLog.getId());
+        }
 
         Incident saved = incidentRepository.save(incident);
         notificationHub.dispatch(saved, IncidentEvent.CREATED);
@@ -69,10 +74,6 @@ public class IncidentService {
 
     private String buildFingerprint(Anomaly anomaly, LogEntry sourceLog) {
         return anomaly.getType() + "::" + sourceLog.getSource();
-    }
-
-    private String maxSeverity(String a, String b) {
-        return SEVERITY_ORDER.indexOf(a) >= SEVERITY_ORDER.indexOf(b) ? a : b;
     }
 
     public Optional<Incident> acknowledge(String id) {

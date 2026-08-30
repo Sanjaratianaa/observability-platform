@@ -1,0 +1,104 @@
+### 1. Envoyer un log ERROR (format JSON brut)
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+{"level":"ERROR","source":"api-gateway","message":"NullPointerException at com.example.Service.process(Service.java:42)"}
+
+### 2. Envoyer un log INFO
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+{"level":"INFO","source":"web-app","message":"User logged in successfully"}
+
+### 3. Voir tous les logs
+GET http://localhost:8082/api/logs
+
+### 4. Voir les logs par niveau
+GET http://localhost:8082/api/logs/level/ERROR
+
+### 5. Voir les incidents
+GET http://localhost:8082/api/incidents
+
+### 6. Voir les incidents OPEN
+GET http://localhost:8082/api/incidents?status=OPEN
+
+### 7. Stats des incidents
+GET http://localhost:8082/api/incidents/stats
+
+### 8. ChatOps - aide
+POST http://localhost:8082/api/chatops
+Content-Type: text/plain
+
+help
+
+### 9. ChatOps - lister incidents ouverts
+POST http://localhost:8082/api/chatops
+Content-Type: text/plain
+
+list
+
+### 10. ChatOps - stats
+POST http://localhost:8082/api/chatops
+Content-Type: text/plain
+
+stats
+
+### 11. Envoyer plein de logs ERROR pour declencher une anomalie
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+{"level":"ERROR","source":"api-gateway","message":"Connection timeout to database"}
+
+### 12. ChatOps - acquitter un incident (remplace ID_ICI par un vrai ID)
+POST http://localhost:8082/api/chatops
+Content-Type: text/plain
+
+ack ID_ICI
+
+### 13. ChatOps - resoudre un incident (remplace ID_ICI par un vrai ID)
+POST http://localhost:8082/api/chatops
+Content-Type: text/plain
+
+resolve ID_ICI
+
+### 14. Acquitter un incident (remplace ID_ICI par un vrai ID)
+PUT http://localhost:8082/api/incidents/IZYBVKABGkeMiiUJCb4j/ack
+
+### 15. Resoudre un incident (remplace ID_ICI par un vrai ID)
+PUT http://localhost:8082/api/incidents/IZYBVKABGkeMiiUJCb4j/resolve
+
+### 16. Filtrer par severite
+GET http://localhost:8082/api/incidents?severity=HIGH
+
+### 17. Recherche temporelle (logs des 24 dernieres heures)
+GET http://localhost:8082/api/logs/search?from=2026-08-29T00:00:00Z&to=2026-08-31T00:00:00Z
+
+### 18. Recherche temporelle + filtre niveau
+GET http://localhost:8082/api/logs/search?from=2026-08-29T00:00:00Z&to=2026-08-31T00:00:00Z&level=ERROR
+
+### 19. Pagination des logs (page 0, 10 par page)
+GET http://localhost:8082/api/logs?page=0&size=10
+
+### 20. Tester KeywordAnomalyDetector — OOM
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+{"level":"ERROR","source":"jvm-monitor","message":"java.lang.OutOfMemoryError: Java heap space at com.example.Service.process(Service.java:42)"}
+
+### 21. Tester KeywordAnomalyDetector — deadlock
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+{"level":"ERROR","source":"db-pool","message":"Found one Java-level deadlock in thread pool-3-thread-7"}
+
+### 22. Log Apache
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+192.168.1.1 - - [23/Aug/2026:14:30:00 +0000] "GET /api/users HTTP/1.1" 500 1234
+
+### 15. Log Syslog
+POST http://localhost:8082/api/logs/raw
+Content-Type: text/plain
+
+<11>Aug 23 14:30:00 server01 myapp: Critical failure in module X

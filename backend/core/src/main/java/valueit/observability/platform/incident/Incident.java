@@ -6,6 +6,8 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(indexName = "incidents")
 public class Incident {
@@ -20,7 +22,7 @@ public class Incident {
     private String type;
 
     @Field(type = FieldType.Keyword)
-    private String severity;
+    private Severity severity;
 
     @Field(type = FieldType.Keyword)
     private IncidentStatus status;
@@ -43,6 +45,9 @@ public class Incident {
     @Field(type = FieldType.Keyword)
     private String jiraTicketKey;
 
+    @Field(type = FieldType.Keyword)
+    private List<String> relatedLogIds = new ArrayList<>();
+
     public Incident() {}
 
     public String getId() { return id; }
@@ -54,8 +59,8 @@ public class Incident {
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 
-    public String getSeverity() { return severity; }
-    public void setSeverity(String severity) { this.severity = severity; }
+    public Severity getSeverity() { return severity; }
+    public void setSeverity(Severity severity) { this.severity = severity; }
 
     public IncidentStatus getStatus() { return status; }
     public void setStatus(IncidentStatus status) { this.status = status; }
@@ -77,4 +82,8 @@ public class Incident {
 
     public String getJiraTicketKey() { return jiraTicketKey; }
     public void setJiraTicketKey(String jiraTicketKey) { this.jiraTicketKey = jiraTicketKey; }
+
+    public List<String> getRelatedLogIds() { return relatedLogIds; }
+    public void setRelatedLogIds(List<String> relatedLogIds) { this.relatedLogIds = relatedLogIds; }
+    public void addRelatedLogId(String logId) { this.relatedLogIds.add(logId); }
 }

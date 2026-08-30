@@ -1,5 +1,9 @@
 package valueit.observability.platform.controller;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -8,6 +12,7 @@ import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
 
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 @RestController
 @RequestMapping("/api/logs")
@@ -56,16 +61,30 @@ public class LogIngestionController {
                 log.setTimestamp(java.time.Instant.now());
             }
         });
-        return (List<LogEntry>) logEntryRepository.saveAll(logs);
+        return StreamSupport.stream(logEntryRepository.saveAll(logs).spliterator(), false).toList();
     }
 
     @GetMapping
-    public List<LogEntry> getAll() {
-        return (List<LogEntry>) logEntryRepository.findAll();
+    public Page<LogEntry> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
+        return logEntryRepository.findAll(pageable);
     }
 
     @GetMapping("/level/{level}")
     public List<LogEntry> getByLevel(@PathVariable String level) {
         return logEntryRepository.findByLevel(level);
+    }
+
+    @GetMapping("/search")
+    public List<LogEntry> search(
+            @RequestParam java.time.Instant from,
+            @RequestParam java.time.Instant to,
+            @RequestParam(required = false) String level) {
+        if (level != null) {
+            return logEntryRepository.findByLevelAndTimestampBetween(level.toUpperCase(), from, to);
+        }
+        return logEntryRepository.findByTimestampBetween(from, to);
     }
 }

@@ -1,41 +1,35 @@
 package valueit.observability.platform;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Component;
-import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.repository.LogEntryRepository;
+import valueit.observability.platform.repository.IncidentRepository;
 
 @Component
 public class ElasticSearchPingRunner implements CommandLineRunner {
 
+    private static final Logger log = LoggerFactory.getLogger(ElasticSearchPingRunner.class);
+
     private final ElasticsearchOperations elasticsearchOperations;
     private final LogEntryRepository logEntryRepository;
+    private final IncidentRepository incidentRepository;
 
-    public ElasticSearchPingRunner (ElasticsearchOperations elasticsearchOperations,
-                                    LogEntryRepository logEntryRepository) {
+    public ElasticSearchPingRunner(ElasticsearchOperations elasticsearchOperations,
+                                   LogEntryRepository logEntryRepository,
+                                   IncidentRepository incidentRepository) {
         this.elasticsearchOperations = elasticsearchOperations;
         this.logEntryRepository = logEntryRepository;
+        this.incidentRepository = incidentRepository;
     }
 
     @Override
-    public void run(String... args) throws Exception {
-        // Vérification de la connexion
+    public void run(String... args) {
         String clusterName = elasticsearchOperations.cluster().health().getClusterName();
-        System.out.println("Elasticsearch is connected. Cluster : " + clusterName);
-
-        // Insertion de log fictif
-        LogEntry log = new LogEntry("ERROR", "api-gateway", "Connexion timeout to downstream service");
-        LogEntry saved = logEntryRepository.save(log);
-        System.out.println("Log saved with ID : " + saved.getId());
-
-        // relire par ID
-        logEntryRepository.findById(saved.getId()).ifPresent(found ->
-                System.out.println("Log retrieved : " + found)
-        );
-
-        // Compter les documents dans l'index
-        long count = logEntryRepository.count();
-        System.out.println("Number of logs in index : " + count);
+        log.info("Elasticsearch connecté — cluster : {}", clusterName);
+        log.info("Index logs : {} documents", logEntryRepository.count());
+        log.info("Index incidents : {} documents", incidentRepository.count());
     }
 }

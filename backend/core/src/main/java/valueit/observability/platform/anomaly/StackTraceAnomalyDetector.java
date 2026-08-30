@@ -1,6 +1,7 @@
 package valueit.observability.platform.anomaly;
 
 import org.springframework.stereotype.Component;
+import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.model.LogEntry;
 
 import java.util.Optional;
@@ -33,7 +34,7 @@ public class StackTraceAnomalyDetector implements AnomalyDetector{
                 ? frameMatcher.group(1) + "." + frameMatcher.group(2) + " (ligne " + frameMatcher.group(4) + ")"
                 : "localisation inconnue";
 
-        String severity = classifySeverity(rootCause);
+        Severity severity = classifySeverity(rootCause);
 
         Anomaly anomaly = new Anomaly(
                 "STACK_TRACE_EXCEPTION",
@@ -51,16 +52,16 @@ public class StackTraceAnomalyDetector implements AnomalyDetector{
         return matcher.find() ? matcher.group(1) : "Exception inconnue";
     }
 
-    private String classifySeverity(String exceptionType) {
+    private Severity classifySeverity(String exceptionType) {
         if (exceptionType.contains("NullPointerException") ||
             exceptionType.contains("OutOfMemoryError")) {
-            return "HIGH";
+            return Severity.HIGH;
         }
 
         if (exceptionType.contains("Exception")) {
-            return "MEDIUM";
+            return Severity.MEDIUM;
         }
 
-        return "LOW";
+        return Severity.LOW;
     }
 }

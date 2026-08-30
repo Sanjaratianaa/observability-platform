@@ -1,17 +1,13 @@
 spring:
   application:
     name: platform
-#  elasticsearch:
-#    uris: https://localhost:9200
-#    username: elastic
-#    password: "*rxzuHQbmzo0PRQw+naV"
   elasticsearch:
-    uris: ${ELASTIC_URIS:https://localhost:9200}
-    username: ${ELASTIC_USERNAME:elastic}
-    password: ${ELASTIC_PASSWORD:}
+    uris: https://localhost:9200
+    username: elastic
+    password: "*rxzuHQbmzo0PRQw+naV"
 
 server:
-  port: 8081
+  port: 8082
 
 notification:
   teams:

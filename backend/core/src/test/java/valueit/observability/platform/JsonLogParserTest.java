@@ -1,7 +1,6 @@
 package valueit.observability.platform;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import valueit.observability.platform.model.LogEntry;
@@ -17,7 +16,6 @@ class JsonLogParserTest {
     @BeforeEach
     void setUp() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
         parser = new JsonLogParser(mapper);
     }
 

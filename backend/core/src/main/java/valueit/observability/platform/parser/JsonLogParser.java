@@ -2,8 +2,8 @@ package valueit.observability.platform.parser;
 
 import org.springframework.stereotype.Component;
 import valueit.observability.platform.model.LogEntry;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
 
 import java.time.Instant;
 
@@ -36,7 +36,7 @@ public class JsonLogParser implements LogParser{
             }
 
             return entry;
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new LogParserException("Invalid JSON log : " + raw, e);
         }
     }

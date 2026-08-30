@@ -1,6 +1,7 @@
 package valueit.observability.platform.anomaly;
 
 import org.springframework.stereotype.Component;
+import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.model.LogEntry;
 
 import java.util.Optional;
@@ -29,7 +30,7 @@ public class ErrorRateAnomalyDetector implements AnomalyDetector {
                     "HIGH_ERROR_RATE",
                     String.format("Taux d'erreur élevé : %.0f%% sur les %d dernières minutes (%d logs analysés)",
                             rate * 100, WINDOW_SECONDS / 60, counter.totalCount()),
-                    rate >= 0.5 ? "CRITICAL" : "HIGH",
+                    rate >= 0.5 ? Severity.CRITICAL : Severity.HIGH,
                     entry.getMessage()
             );
             return Optional.of(anomaly);

@@ -1,18 +1,23 @@
 package valueit.observability.platform.notification;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentEvent;
+import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.repository.IncidentRepository;
 
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class JiraNotifier implements Notifier {
+
+    private static final Logger log = LoggerFactory.getLogger(JiraNotifier.class);
 
     private final String baseUrl;
     private final String email;
@@ -40,14 +45,14 @@ public class JiraNotifier implements Notifier {
 
     @Override
     public boolean supports(Incident incident) {
-        String s = incident.getSeverity();
-        return "HIGH".equals(s) || "CRITICAL".equals(s);
+        Severity s = incident.getSeverity();
+        return s == Severity.HIGH || s == Severity.CRITICAL;
     }
 
     @Override
     public void notify(Incident incident, IncidentEvent event) {
         if (baseUrl.contains("not-configured")) {
-            System.out.println("[Jira] Non configuré, action ignorée.");
+            log.warn("Jira non configuré, action ignorée");
             return;
         }
 
@@ -81,9 +86,9 @@ public class JiraNotifier implements Notifier {
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
-            System.out.println("[Jira] Commentaire ajouté à " + incident.getJiraTicketKey());
+            log.info("Commentaire Jira ajouté à {}", incident.getJiraTicketKey());
         } catch (Exception e) {
-            System.err.println("[Jira] Erreur ajout commentaire : " + e.getMessage());
+            log.error("Erreur ajout commentaire Jira : {}", e.getMessage(), e);
         }
     }
 
@@ -118,31 +123,11 @@ public class JiraNotifier implements Notifier {
             String key = objectMapper.readTree(response).path("key").asText(null);
             if (key != null) {
                 incident.setJiraTicketKey(key);
-                incidentRepository.save(incident);   // ← on MÉMORISE la clé
+                incidentRepository.save(incident);
             }
-            System.out.println("[Jira] Ticket créé : " + key);
+            log.info("Ticket Jira créé : {}", key);
         } catch (Exception e) {
-            System.err.println("[Jira] Erreur création ticket : " + e.getMessage());
-        }
-    }
-
-    private void addComment(Incident incident) {
-        String body = """
-                { "body": "Récurrence détectée — occurrence n°%d (dernière vue : %s)" }
-                """.formatted(incident.getOccurrenceCount(),
-                String.valueOf(incident.getLastSeen()));
-
-        try {
-            restClient.post()
-                    .uri(baseUrl + "/rest/api/2/issue/" + incident.getJiraTicketKey() + "/comment")
-                    .header("Authorization", "Basic " + basicAuth())
-                    .header("Content-Type", "application/json")
-                    .body(body)
-                    .retrieve()
-                    .toBodilessEntity();
-            System.out.println("[Jira] Commentaire ajouté à " + incident.getJiraTicketKey());
-        } catch (Exception e) {
-            System.err.println("[Jira] Erreur ajout commentaire : " + e.getMessage());
+            log.error("Erreur création ticket Jira : {}", e.getMessage(), e);
         }
     }
 

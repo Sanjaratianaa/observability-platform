@@ -1,13 +1,18 @@
 package valueit.observability.platform.notification;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentEvent;
+import valueit.observability.platform.incident.Severity;
 
 @Component
 public class TeamsNotifier implements Notifier {
+
+    private static final Logger log = LoggerFactory.getLogger(TeamsNotifier.class);
 
     private final RestClient restClient;
     private final String webhookUrl;
@@ -30,7 +35,7 @@ public class TeamsNotifier implements Notifier {
         }
 
         if (webhookUrl.contains("not-configured")) {
-            System.out.println("[Teams] Webhook non configuré, notification ignorée.");
+            log.warn("Teams webhook non configuré, notification ignorée");
             return;
         }
 
@@ -66,18 +71,18 @@ public class TeamsNotifier implements Notifier {
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
-            System.out.println("[Teams] Notification envoyée : " + incident.getType());
+            log.info("Notification Teams envoyée : {}", incident.getType());
         } catch (Exception e) {
-            System.err.println("[Teams] Erreur d'envoi : " + e.getMessage());
+            log.error("Erreur envoi Teams : {}", e.getMessage(), e);
         }
     }
 
-    private String severityToColor(String severity) {
+    private String severityToColor(Severity severity) {
         return switch (severity) {
-            case "CRITICAL" -> "FF0000";
-            case "HIGH" -> "FF6600";
-            case "MEDIUM" -> "FFAA00";
-            default -> "00AA00";
+            case CRITICAL -> "FF0000";
+            case HIGH -> "FF6600";
+            case MEDIUM -> "FFAA00";
+            case LOW -> "00AA00";
         };
     }
 }
