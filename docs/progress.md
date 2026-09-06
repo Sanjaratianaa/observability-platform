@@ -1,6 +1,6 @@
 # Observability Platform — Progress
 
-## Dernière session : 19 août 2026
+## Dernière session : 6 septembre 2026
 
 ### Sprint 1 — Connecteur ES (fait)
 - [x] Projet Spring Boot 4.1.0 initialisé (Java 21, Maven)
@@ -74,31 +74,110 @@ Log brut → parse → LogEntry (ES)
              └─ JiraNotifier   (HIGH/CRITICAL : crée puis commente)
 ```
 
-### Endpoints API (port 8081)
+
+### Sprint 2.5 — Améliorations backend (fait)
+- [x] Enum `Severity` (LOW → CRITICAL) avec `max()` pour escalade
+- [x] `Incident.relatedLogIds` — corrélation incident ↔ logs
+- [x] `SLF4J` logging dans tous les services
+- [x] `GlobalExceptionHandler` — gestion centralisée des erreurs REST
+- [x] Fix `ClassCastException` (saveAll / findAll → StreamSupport)
+- [x] Pagination + tri sur `GET /api/logs` (Page + Sort)
+- [x] Recherche temporelle `GET /api/logs/search?from=...&to=...&level=...`
+- [x] ChatOps : `ChatOpsController` + `ChatOpsService` (commandes : list, stats, ack, resolve)
+
+### Sprint 3 — Interfaces (fait)
+- [x] `WebConfig` — CORS activé pour le frontend
+- [x] Frontend React (Vite + TailwindCSS) dans `frontend/dashboard/`
+- [x] SPA avec sidebar navigation (React Router DOM)
+- [x] **Page Dashboard** — KPI cards (logs, incidents, ouverts, résolus) + pie chart (recharts)
+- [x] **Page Logs** — tableau paginé avec recherche temporelle + filtre niveau
+- [x] **Page Incidents** — cartes avec actions ACK / Résoudre + filtres statut/sévérité
+- [x] Proxy Vite → backend (`/api` → `http://localhost:8082`)
+
+### Documentation API (fait)
+- [x] Dépendance `springdoc-openapi-starter-webmvc-ui`
+- [x] `OpenApiConfig` — métadonnées API (titre, description, version, licence)
+- [x] Annotations `@Tag` + `@Operation` + `@Parameter` sur les 3 controllers
+- [x] Swagger UI accessible sur `/swagger-ui.html`
+
+### Tests unitaires — 46 tests, 0 failures (fait)
+- [x] `JsonLogParserTest` (6 tests) — parsing JSON, cas limites
+- [x] `ApacheLogParserTest` (6 tests) — parsing Apache, niveaux HTTP
+- [x] `SyslogParserTest` (7 tests) — parsing Syslog, sévérités 0-7
+- [x] `StackTraceAnomalyDetectorTest` (5 tests) — NPE, CausedBy, sévérités
+- [x] `KeywordAnomalyDetectorTest` (7 tests) — OOM, deadlock, timeout, troncature
+- [x] `ErrorRateAnomalyDetectorTest` (4 tests) — seuil min, taux 30%/50%+
+- [x] `SeverityTest` (4 tests) — enum max(), ordinal
+- [x] `IncidentServiceTest` (6 tests) — création, récurrence, ACK, resolve (Mockito)
+- [x] `PlatformApplicationTests` — skip si pas d'ES (`@EnabledIfEnvironmentVariable`)
+
+### Docker + CI/CD (fait)
+- [x] `backend/core/Dockerfile` — multi-stage (JDK 21 build → JRE 21 runtime)
+- [x] `frontend/dashboard/Dockerfile` — multi-stage (Node 20 build → nginx runtime)
+- [x] `frontend/dashboard/nginx.conf` — SPA fallback + proxy API → backend
+- [x] `infra/docker-compose.yml` — 3 services (Elasticsearch + backend + frontend) avec healthcheck
+- [x] `.github/workflows/ci.yml` — pipeline CI : backend (compile+test) | frontend (build) | docker (validate)
+- [x] `application.yaml` externalisé via `${ENV_VAR:default}` pour Docker
+
+### Endpoints API (port 8082)
 | Méthode | URL | Description |
 |---------|-----|-------------|
 | POST | `/api/logs/raw` | Ingérer un log brut (auto-parse + détection + notif) |
-| POST | `/api/logs` | Ingérer un log (JSON structuré) |
-| POST | `/api/logs/bulk` | Ingérer plusieurs logs |
-| GET | `/api/logs` | Lister tous les logs |
+| POST | `/api/logs` | Ingérer un log structuré |
+| POST | `/api/logs/bulk` | Ingérer plusieurs logs en lot |
+| GET | `/api/logs?page=0&size=50` | Lister les logs (paginé) |
 | GET | `/api/logs/level/{level}` | Filtrer par niveau |
+| GET | `/api/logs/search?from=...&to=...&level=...` | Recherche temporelle |
+| GET | `/api/incidents` | Lister les incidents (filtre ?status=&severity=) |
+| GET | `/api/incidents/{id}` | Détail d'un incident |
+| PUT | `/api/incidents/{id}/ack` | Acquitter un incident |
+| PUT | `/api/incidents/{id}/resolve` | Résoudre un incident |
+| GET | `/api/incidents/stats` | Nombre d'incidents par statut |
+| POST | `/api/chatops` | Commande ChatOps (list, stats, ack, resolve) |
+| GET | `/swagger-ui.html` | Documentation API interactive |
 
-### Prochaines étapes
-1. **Tester le pipeline end-to-end** (à la maison) — `POST /api/logs/raw` avec stack trace / burst d'erreurs ; vérifier création `Incident`, logs `[Teams]`/`[Jira]`, montée de `occurrenceCount` sans re-spam.
-2. **Tests unitaires** — `IncidentService` (nouveau vs récurrence, escalade sévérité), `NotificationHub` (routage + isolation), parsers Syslog/Apache, détecteurs.
-3. **Ré-notification sur escalade** — re-notifier Teams si la sévérité monte (nouvel `IncidentEvent.ESCALATED`).
-4. **Résolution d'incidents** — passer un incident en `RESOLVED` (auto quand le taux redescend, ou manuel → prépare le ChatOps Sprint 3).
-5. **Sprint 3** — interface ChatOps, dashboard React, (mobile Kotlin optionnel).
+### Fichiers clés (mis à jour)
+```
+backend/core/src/main/java/valueit/observability/platform/
+├── PlatformApplication.java
+├── ElasticSearchPingRunner.java
+├── ElasticsearchSslConfig.java
+├── WebConfig.java                        → CORS
+├── OpenApiConfig.java                    → Swagger
+├── model/LogEntry.java
+├── repository/{LogEntry,Incident}Repository.java
+├── controller/
+│   ├── LogIngestionController.java       → ingestion + recherche
+│   ├── IncidentController.java           → CRUD incidents + stats
+│   ├── ChatOpsController.java            → commandes ChatOps
+│   └── GlobalExceptionHandler.java       → gestion erreurs
+├── parser/                               → LogParser, Json/Syslog/Apache
+├── anomaly/                              → AnomalyDetector, détecteurs, SlidingWindowCounter
+├── incident/                             → Incident, IncidentStatus, IncidentEvent, Severity
+├── service/                              → LogParsing, AnomalyDetection, Incident, ChatOps
+└── notification/                         → Notifier, NotificationHub, Teams, Jira
+
+frontend/dashboard/src/
+├── App.jsx                               → SPA + sidebar + router
+├── api.js                                → fonctions API (fetch/search/ack/resolve)
+├── pages/
+│   ├── Dashboard.jsx                     → stats + pie chart
+│   ├── Logs.jsx                          → tableau paginé + recherche
+│   └── Incidents.jsx                     → cartes + actions
+
+infra/docker-compose.yml                  → ES + backend + frontend
+.github/workflows/ci.yml                  → CI pipeline
+```
 
 ### Notes techniques
-- Variables d'env : `ELASTIC_PASSWORD` (requis), `TEAMS_WEBHOOK_URL`, `JIRA_BASE_URL`/`JIRA_EMAIL`/`JIRA_API_TOKEN`/`JIRA_PROJECT_KEY` (canaux auto-désactivés si "not-configured").
-- App sur le port `8081` (`application.yaml`).
-- Jira Cloud : Basic Auth `email:api-token` (Base64), endpoints `/rest/api/2/issue` (création) et `/rest/api/2/issue/{key}/comment` (MAJ).
-- Build/test nécessitent le réseau (parent POM Spring Boot 4.1.0) → à faire à la maison.
-- Pour relancer proprement : `taskkill /F /IM java.exe` avant de Run.
+- Variables d'env : `SPRING_ELASTICSEARCH_URIS`, `SPRING_ELASTICSEARCH_USERNAME`, `SPRING_ELASTICSEARCH_PASSWORD`, `SERVER_PORT`, `TEAMS_WEBHOOK_URL`, `JIRA_*`
+- Port backend : `8082` (configurable via `SERVER_PORT`)
+- Déploiement Docker : `docker compose -f infra/docker-compose.yml up --build`
+- Tests : `./mvnw test` (46 tests, pas besoin d'ES)
+- Swagger UI : `http://localhost:8082/swagger-ui.html`
 
-### Ce qui peut être codé SANS Elasticsearch / SANS réseau
-- Logique de parsing (Java pur)
-- Logique de détection d'anomalies (algorithmes purs)
-- Logique de corrélation / orchestration (`IncidentService`, `NotificationHub`)
-- (Écriture des tests possible ; l'exécution nécessite le build)
+### Prochaines étapes
+- [ ] Tester le frontend + backend end-to-end
+- [ ] Spring Boot Actuator + métriques Prometheus (meta-observabilité)
+- [ ] README.md complet avec diagrammes d'architecture
+- [ ] Merger sprint-3-interfaces → main
