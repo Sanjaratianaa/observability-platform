@@ -1,14 +1,50 @@
 services:
+  # --- Elasticsearch ---
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
-    container_name: elasticsearch
+    container_name: obs-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
     volumes:
       - esdata:/usr/share/elasticsearch/data
     ports:
-      - 9200:9200
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --- Backend Spring Boot ---
+  backend:
+    build:
+      context: ../backend/core
+      dockerfile: Dockerfile
+    container_name: obs-backend
+    environment:
+      - SPRING_ELASTICSEARCH_URIS=http://elasticsearch:9200
+      - SPRING_ELASTICSEARCH_USERNAME=
+      - SPRING_ELASTICSEARCH_PASSWORD=
+      - SERVER_PORT=8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # --- Frontend React (nginx) ---
+  frontend:
+    build:
+      context: ../frontend/dashboard
+      dockerfile: Dockerfile
+    container_name: obs-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
 volumes:
   esdata:
     driver: local
