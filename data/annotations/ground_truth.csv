@@ -1,0 +1,4 @@
+file,timestamp,start_line,end_line,label,comments
+sample/apache.log,2026-09-14T12:05:10+00:00,11,20,ERROR_SPIKE,"Multiple 500 responses in short time window"
+sample/json.log,2026-09-14T12:05:10+00:00,6,11,ERROR_SPIKE,"Consecutive ERROR JSON entries"
+sample/syslog.log,2026-09-14T12:05:10+00:00,6,9,ERROR_SPIKE,"Several ERROR messages from api service"
