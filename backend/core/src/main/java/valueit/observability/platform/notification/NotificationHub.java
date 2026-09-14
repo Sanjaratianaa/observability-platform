@@ -2,6 +2,7 @@ package valueit.observability.platform.notification;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentEvent;
@@ -19,6 +20,7 @@ public class NotificationHub {
         this.notifiers = notifiers;
     }
 
+    @Async
     public void dispatch(Incident incident, IncidentEvent event) {
         for (Notifier notifier : notifiers) {
             if (!notifier.supports(incident)) {

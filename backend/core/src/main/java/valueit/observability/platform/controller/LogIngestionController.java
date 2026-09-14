@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import valueit.observability.platform.metrics.PlatformMetrics;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
@@ -26,15 +27,18 @@ public class LogIngestionController {
     private final LogParsingService logParsingService;
     private final AnomalyDetectionService anomalyDetectionService;
     private final IncidentService incidentService;
+    private final PlatformMetrics metrics;
 
     public LogIngestionController(LogEntryRepository logEntryRepository,
                                   LogParsingService logParsingService,
                                   AnomalyDetectionService anomalyDetectionService,
-                                  IncidentService incidentService) {
+                                  IncidentService incidentService,
+                                  PlatformMetrics metrics) {
         this.logEntryRepository = logEntryRepository;
         this.logParsingService = logParsingService;
         this.anomalyDetectionService = anomalyDetectionService;
         this.incidentService = incidentService;
+        this.metrics = metrics;
     }
 
     @Operation(summary = "Ingérer un log brut", description = "Parse automatiquement (JSON, Apache, Syslog) et déclenche la détection d'anomalies")
@@ -42,9 +46,13 @@ public class LogIngestionController {
     public ResponseEntity<LogEntry> ingestRaw(@RequestBody String rawLog) {
         LogEntry entry = logParsingService.parse(rawLog);
         LogEntry saved = logEntryRepository.save(entry);
+        metrics.logIngested();
 
         anomalyDetectionService.analyze(saved)
-                .forEach(anomaly -> incidentService.handle(anomaly, saved));
+                .forEach(anomaly -> {
+                    metrics.anomalyDetected();
+                    incidentService.handle(anomaly, saved);
+                });
 
         return ResponseEntity.ok(saved);
     }

@@ -1,6 +1,7 @@
 package valueit.observability.platform.service;
 
 import org.springframework.stereotype.Service;
+import valueit.observability.platform.metadata.AuditService;
 import valueit.observability.platform.anomaly.Anomaly;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentStatus;
@@ -19,11 +20,12 @@ public class IncidentService {
 
     private final IncidentRepository incidentRepository;
     private final NotificationHub notificationHub;
+    private final AuditService auditService;
 
-
-    public IncidentService(IncidentRepository incidentRepository, NotificationHub notificationHub) {
+    public IncidentService(IncidentRepository incidentRepository, NotificationHub notificationHub, AuditService auditService) {
         this.incidentRepository = incidentRepository;
         this.notificationHub = notificationHub;
+        this.auditService = auditService;
     }
 
     public Incident handle(Anomaly anomaly, LogEntry sourceLog) {
@@ -69,6 +71,7 @@ public class IncidentService {
 
         Incident saved = incidentRepository.save(incident);
         notificationHub.dispatch(saved, IncidentEvent.CREATED);
+        auditService.record("INCIDENT_CREATED", "INCIDENT", saved.getId(), anomaly.getDescription(), "system");
         return saved;
     }
 
@@ -79,7 +82,9 @@ public class IncidentService {
     public Optional<Incident> acknowledge(String id) {
         return incidentRepository.findById(id).map(incident -> {
             incident.setStatus(IncidentStatus.ACKNOWLEDGED);
-            return incidentRepository.save(incident);
+            Incident saved = incidentRepository.save(incident);
+            auditService.record("INCIDENT_ACKNOWLEDGED", "INCIDENT", id, null, "user");
+            return saved;
         });
     }
 
@@ -87,7 +92,8 @@ public class IncidentService {
         return incidentRepository.findById(id).map(incident -> {
             incident.setStatus(IncidentStatus.RESOLVED);
             Incident saved = incidentRepository.save(incident);
-            notificationHub.dispatch(saved, IncidentEvent.RESOLVED);  // ← propage aux canaux (Jira)
+            notificationHub.dispatch(saved, IncidentEvent.RESOLVED);
+            auditService.record("INCIDENT_RESOLVED", "INCIDENT", id, null, "user");
             return saved;
         });
     }

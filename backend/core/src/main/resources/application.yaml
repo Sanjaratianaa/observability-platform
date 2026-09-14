@@ -4,10 +4,38 @@ spring:
   elasticsearch:
     uris: ${SPRING_ELASTICSEARCH_URIS:https://localhost:9200}
     username: ${SPRING_ELASTICSEARCH_USERNAME:elastic}
-    password: ${SPRING_ELASTICSEARCH_PASSWORD:*rxzuHQbmzo0PRQw+naV}
+    password: ${SPRING_ELASTICSEARCH_PASSWORD:changeme}
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:obsdb}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: ${JPA_DIALECT:org.hibernate.dialect.H2Dialect}
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:true}
+      path: /h2-console
 
 server:
   port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: observability-platform
 
 notification:
   teams:
