@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 public class ApacheLogParser implements LogParser {
 
     private static final Pattern APACHE_PATTERN = Pattern.compile(
-            "^(\\S+)\\s\\S+\\s\\S+\\s\\[([^]]+)]\\s\"(\\S+)\\s(\\S+)\\s\\S+\"\\s(\\d{3})\\s(\\S+)$"
+            "^(\\S+)\\s\\S+\\s\\S+\\s\\[([^]]+)]\\s\"(\\S+)\\s(\\S+)\\s\\S+\"\\s(\\d{3})\\s(\\S+)(?:\\s.*)?$"
     );
 
     @Override
