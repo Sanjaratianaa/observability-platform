@@ -67,7 +67,7 @@ services:
       dockerfile: Dockerfile
     container_name: obs-frontend
     ports:
-      - "80:80"
+      - "8090:80"
     depends_on:
       - backend
 
@@ -78,7 +78,7 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
-      - "9090:9090"
+      - "9091:9090"
     depends_on:
       - backend
 
