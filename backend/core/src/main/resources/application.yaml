@@ -2,9 +2,9 @@ spring:
   application:
     name: platform
   elasticsearch:
-    uris: ${SPRING_ELASTICSEARCH_URIS:https://localhost:9200}
-    username: ${SPRING_ELASTICSEARCH_USERNAME:elastic}
-    password: ${SPRING_ELASTICSEARCH_PASSWORD:changeme}
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://localhost:9200}
+    username: ${SPRING_ELASTICSEARCH_USERNAME:}
+    password: ${SPRING_ELASTICSEARCH_PASSWORD:}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:obsdb}
     username: ${SPRING_DATASOURCE_USERNAME:sa}

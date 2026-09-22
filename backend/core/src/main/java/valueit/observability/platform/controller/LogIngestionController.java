@@ -8,10 +8,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import valueit.observability.platform.anomaly.Anomaly;
 import valueit.observability.platform.metrics.PlatformMetrics;
 import valueit.observability.platform.model.LogEntry;
+import valueit.observability.platform.parser.LogParserException;
 import valueit.observability.platform.repository.LogEntryRepository;
 import valueit.observability.platform.service.*;
 
@@ -56,6 +59,50 @@ public class LogIngestionController {
 
         return ResponseEntity.ok(saved);
     }
+
+    @Operation(summary = "Ingérer des logs bruts en lot",
+            description = "Une ligne = un log brut (text/plain). Les lignes vides et les commentaires (#) sont ignorés. " +
+                    "Le paramètre ?source= force la source de tous les logs (ex: nom du fichier injecté).")
+    @PostMapping(value = "/raw/bulk", consumes = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<BulkIngestResult> ingestRawBulk(
+            @Parameter(description = "Source forcée pour tous les logs du lot") @RequestParam(required = false) String source,
+            @RequestBody String body) {
+        int received = 0;
+        int ingested = 0;
+        int parseErrors = 0;
+        int anomaliesDetected = 0;
+
+        for (String line : body.split("\\R")) {
+            String raw = line.trim();
+            if (raw.isEmpty() || raw.startsWith("#")) {
+                continue;
+            }
+            received++;
+            try {
+                LogEntry entry = logParsingService.parse(raw);
+                if (source != null && !source.isBlank()) {
+                    entry.setSource(source);
+                }
+                LogEntry saved = logEntryRepository.save(entry);
+                ingested++;
+                metrics.logIngested();
+
+                List<Anomaly> detected = anomalyDetectionService.analyze(saved);
+                anomaliesDetected += detected.size();
+                detected.forEach(anomaly -> {
+                    metrics.anomalyDetected();
+                    incidentService.handle(anomaly, saved);
+                });
+            } catch (LogParserException e) {
+                parseErrors++;
+                metrics.logParseError();
+            }
+        }
+
+        return ResponseEntity.ok(new BulkIngestResult(received, ingested, parseErrors, anomaliesDetected));
+    }
+
+    public record BulkIngestResult(int received, int ingested, int parseErrors, int anomaliesDetected) {}
 
     @Operation(summary = "Ingérer un log structuré")
     @PostMapping

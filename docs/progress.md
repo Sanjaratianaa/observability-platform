@@ -176,8 +176,15 @@ infra/docker-compose.yml                  → ES + backend + frontend
 - Tests : `./mvnw test` (46 tests, pas besoin d'ES)
 - Swagger UI : `http://localhost:8082/swagger-ui.html`
 
+### Sprint 4 — Évaluation (en cours)
+- [x] `POST /api/logs/raw/bulk` — ingestion en lot (text/plain, 1 ligne = 1 log, ignore lignes vides/`#`, `?source=` force la source, retourne `BulkIngestResult`)
+- [x] Fix `SyslogParser` — préfixe `<PRI>` optionnel (RFC 3164 sans priorité) + inférence du niveau depuis le message
+- [x] `@JsonAlias("service")` sur `LogEntry.source` — les logs JSON avec champ `service` remplissent `source`
+- [x] `scripts/run_evaluation.ps1` / `.sh` — injection des samples, collecte incidents + métriques Prometheus, comparaison `ground_truth.csv` → précision/rappel/F1 dans `results/eval-<ts>/`
+- [ ] Exécuter la campagne d'évaluation complète (3 répétitions, moyenne ± écart-type)
+
 ### Prochaines étapes
 - [ ] Tester le frontend + backend end-to-end
-- [ ] Spring Boot Actuator + métriques Prometheus (meta-observabilité)
+- [x] Spring Boot Actuator + métriques Prometheus (meta-observabilité)
 - [ ] README.md complet avec diagrammes d'architecture
 - [ ] Merger sprint-3-interfaces → main

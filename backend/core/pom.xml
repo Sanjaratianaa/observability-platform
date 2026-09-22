@@ -11,20 +11,24 @@
 	<groupId>valueit.observability</groupId>
 	<artifactId>platform</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
+	<name>observability-platform</name>
+	<description>Plateforme d'observabilité — ingestion, parsing, détection d'anomalies et gestion d'incidents</description>
+	<url>https://github.com/Sanjaratianaa/observability-platform</url>
 	<licenses>
-		<license/>
+		<license>
+			<name>MIT License</name>
+		</license>
 	</licenses>
 	<developers>
-		<developer/>
+		<developer>
+			<name>Sanjaratiana</name>
+		</developer>
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection>scm:git:https://github.com/Sanjaratianaa/observability-platform.git</connection>
+		<developerConnection>scm:git:https://github.com/Sanjaratianaa/observability-platform.git</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/Sanjaratianaa/observability-platform</url>
 	</scm>
 	<properties>
 		<java.version>21</java.version>

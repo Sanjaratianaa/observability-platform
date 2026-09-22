@@ -11,7 +11,12 @@ import java.util.regex.Pattern;
 public class SyslogParser implements LogParser {
 
     private static final Pattern SYSLOG_PATTERN = Pattern.compile(
-            "^<(\\d+)>(\\w{3}\\s+\\d{1,2}\\s\\d{2}:\\d{2}:\\d{2})\\s(\\S+)\\s(\\S+):\\s(.*)$"
+            "^(?:<(\\d+)>)?(\\w{3}\\s+\\d{1,2}\\s\\d{2}:\\d{2}:\\d{2})\\s(\\S+)\\s(\\S+):\\s(.*)$"
+    );
+
+    // Niveau inféré depuis le début du message quand le PRI syslog est absent
+    private static final Pattern LEVEL_PREFIX = Pattern.compile(
+            "^(?i)(emerg|alert|crit|critical|error|err|warn|warning|notice|info|debug)\\b"
     );
 
     @Override
@@ -32,10 +37,12 @@ public class SyslogParser implements LogParser {
         String tag  = matcher.group(4);
         String msg  = matcher.group(5);
 
-        String level = "INFO";
+        String level;
         if (pri != null) {
             int severity = Integer.parseInt(pri) % 8;
             level = severityToLevel(severity);
+        } else {
+            level = inferLevelFromMessage(msg);
         }
 
         LogEntry entry = new LogEntry();
@@ -45,6 +52,19 @@ public class SyslogParser implements LogParser {
         entry.setTimestamp(Instant.now());
 
         return entry;
+    }
+
+    private String inferLevelFromMessage(String msg) {
+        Matcher m = LEVEL_PREFIX.matcher(msg);
+        if (!m.find()) {
+            return "INFO";
+        }
+        return switch (m.group(1).toLowerCase()) {
+            case "emerg", "alert", "crit", "critical", "error", "err" -> "ERROR";
+            case "warn", "warning" -> "WARNING";
+            case "debug" -> "DEBUG";
+            default -> "INFO"; // info, notice
+        };
     }
 
     private String severityToLevel(int severity) {

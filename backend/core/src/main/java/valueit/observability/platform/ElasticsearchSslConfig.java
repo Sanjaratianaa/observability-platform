@@ -28,15 +28,21 @@ public class ElasticsearchSslConfig extends ElasticsearchConfiguration {
 
     @Override
     public ClientConfiguration clientConfiguration() {
-        URI uri = URI.create(esUri);
+        String configuredUri = (esUri == null || esUri.isBlank()) ? "http://localhost:9200" : esUri.trim();
+        URI uri = URI.create(configuredUri);
+
+        String hostAndPort = uri.getHost() == null
+            ? uri.getAuthority()
+            : uri.getHost() + (uri.getPort() > -1 ? ":" + uri.getPort() : "");
+
         var builder = ClientConfiguration.builder()
-            .connectedTo(uri.getHost() + (uri.getPort() > -1 ? ":" + uri.getPort() : ""));
+            .connectedTo(hostAndPort);
 
         if ("https".equalsIgnoreCase(uri.getScheme())) {
             builder.usingSsl(createTrustAllSslContext());
         }
 
-        if (esUsername != null && !esUsername.isBlank() && esPassword != null) {
+        if (esUsername != null && !esUsername.isBlank() && esPassword != null && !esPassword.isBlank()) {
             builder.withBasicAuth(esUsername, esPassword);
         }
 

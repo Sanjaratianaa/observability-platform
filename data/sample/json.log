@@ -1,0 +1,16 @@
+{"timestamp":"2026-09-14T12:00:00Z","level":"INFO","service":"web","message":"startup complete"}
+{"timestamp":"2026-09-14T12:00:05Z","level":"INFO","service":"api","message":"received request","path":"/api/health"}
+{"timestamp":"2026-09-14T12:01:00Z","level":"INFO","service":"api","message":"processed item","id":1}
+{"timestamp":"2026-09-14T12:02:10Z","level":"INFO","service":"collector","message":"scrape success"}
+{"timestamp":"2026-09-14T12:04:00Z","level":"WARN","service":"auth","message":"slow response"}
+
+# Spike d'erreurs JSON (lignes 6-11)
+{"timestamp":"2026-09-14T12:05:10Z","level":"ERROR","service":"api","message":"NullPointer exception","stack":"java.lang.NullPointerException at Foo.bar(Foo.java:42)"}
+{"timestamp":"2026-09-14T12:05:11Z","level":"ERROR","service":"api","message":"Database timeout","cause":"org.postgresql.util.PSQLException"}
+{"timestamp":"2026-09-14T12:05:12Z","level":"ERROR","service":"api","message":"Database timeout","cause":"org.postgresql.util.PSQLException"}
+{"timestamp":"2026-09-14T12:05:13Z","level":"ERROR","service":"api","message":"Database timeout","cause":"org.postgresql.util.PSQLException"}
+{"timestamp":"2026-09-14T12:05:14Z","level":"ERROR","service":"api","message":"NullPointer exception","stack":"java.lang.NullPointerException at Foo.bar(Foo.java:45)"}
+{"timestamp":"2026-09-14T12:05:15Z","level":"ERROR","service":"api","message":"handled error","note":"retry later"}
+
+{"timestamp":"2026-09-14T12:06:00Z","level":"INFO","service":"api","message":"recovered"}
+{"timestamp":"2026-09-14T12:07:00Z","level":"INFO","service":"web","message":"user visit","path":"/dashboard"}

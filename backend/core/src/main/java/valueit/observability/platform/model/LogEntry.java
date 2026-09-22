@@ -1,5 +1,6 @@
 package valueit.observability.platform.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -19,6 +20,7 @@ public class LogEntry {
     @Field(type = FieldType.Keyword)
     private String level;
 
+    @JsonAlias("service")
     @Field(type = FieldType.Keyword)
     private String source;
 

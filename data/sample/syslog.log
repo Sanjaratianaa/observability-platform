@@ -1,0 +1,14 @@
+Sep 14 12:00:00 host1 systemd[1]: Started Observability Platform service.
+Sep 14 12:00:02 host1 kernel: [    0.000000] Initializing cgroup subsys cpuset
+Sep 14 12:00:05 host1 app[234]: Info: scheduled job completed
+Sep 14 12:01:00 host1 app[234]: Info: handled 1 requests
+Sep 14 12:04:00 host1 auth[120]: Warning: authentication slow for user=alice
+
+# Erreurs syslog (lignes 6-9)
+Sep 14 12:05:10 host1 api[310]: ERROR: Failed to connect to database
+Sep 14 12:05:11 host1 api[310]: ERROR: Timeout while querying orders
+Sep 14 12:05:12 host1 api[310]: ERROR: NullPointerException at OrderService.java:88
+Sep 14 12:05:13 host1 api[310]: ERROR: Connection reset by peer
+
+Sep 14 12:06:00 host1 app[234]: Info: recovered from transient error
+Sep 14 12:07:00 host1 systemd[1]: Stopping Observability Platform service.
