@@ -57,7 +57,9 @@ public class JiraNotifier implements Notifier {
         }
 
         if (incident.getJiraTicketKey() == null) {
-            if (event == IncidentEvent.CREATED) {
+            // supports() garantit déjà HIGH/CRITICAL : on crée le ticket même sur RECURRED
+            // (la sévérité a pu être escaladée après la création de l'incident)
+            if (event != IncidentEvent.RESOLVED) {
                 createTicket(incident);
             }
             return;

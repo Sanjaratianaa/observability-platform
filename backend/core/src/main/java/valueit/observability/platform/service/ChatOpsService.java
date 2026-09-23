@@ -34,7 +34,13 @@ public class ChatOpsService {
         return commands.stream()
                 .filter(c -> c.name().equals(name))
                 .findFirst()
-                .map(c -> c.execute(args))
+                .map(c -> {
+                    try {
+                        return c.execute(args);
+                    } catch (IllegalArgumentException e) {
+                        return "Erreur : " + e.getMessage();
+                    }
+                })
                 .orElse("Commande inconnue : '" + name + "'. Tape 'help'.");
     }
 }

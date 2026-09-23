@@ -15,12 +15,26 @@ public class StackTraceAnomalyDetector implements AnomalyDetector{
     );
 
     private static final Pattern ROOT_CAUSE_PATTERN = Pattern.compile(
-            "Caused by:\\s([\\w.]+Exception)"
+            "Caused by:\\s([\\w.]+(?:Exception|Error))"
+    );
+
+    // Déclenche sur "exception" (casse libre) ou un type *Error (ex: OutOfMemoryError)
+    private static final Pattern TRIGGER_PATTERN = Pattern.compile(
+            "(?i:\\bexception\\b)|[\\w.$]*Error\\b"
+    );
+
+    private static final Pattern EXCEPTION_TYPE_PATTERN = Pattern.compile(
+            "([\\w.$]+(?:Exception|Error))\\b"
+    );
+
+    // Cas "NullPointer exception" (mot séparé, casse libre)
+    private static final Pattern LOOSE_EXCEPTION_PATTERN = Pattern.compile(
+            "([\\w.$]+)\\s+(?i:exception)\\b"
     );
 
     @Override
     public Optional<Anomaly> detect(LogEntry entry) {
-        if (entry.getMessage() == null || !entry.getMessage().contains("Exception")) {
+        if (entry.getMessage() == null || !TRIGGER_PATTERN.matcher(entry.getMessage()).find()) {
             return Optional.empty();
         }
 
@@ -47,18 +61,22 @@ public class StackTraceAnomalyDetector implements AnomalyDetector{
     }
 
     private String extractFirstExceptionType(String message) {
-        Pattern pattern = Pattern.compile("([\\w.]+Exception)");
-        Matcher matcher = pattern.matcher(message);
-        return matcher.find() ? matcher.group(1) : "Exception inconnue";
+        Matcher matcher = EXCEPTION_TYPE_PATTERN.matcher(message);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        Matcher loose = LOOSE_EXCEPTION_PATTERN.matcher(message);
+        return loose.find() ? loose.group(1) : "Exception inconnue";
     }
 
     private Severity classifySeverity(String exceptionType) {
-        if (exceptionType.contains("NullPointerException") ||
-            exceptionType.contains("OutOfMemoryError")) {
+        if (exceptionType.contains("NullPointer") ||
+            exceptionType.contains("OutOfMemory")) {
             return Severity.HIGH;
         }
 
-        if (exceptionType.contains("Exception")) {
+        if (exceptionType.toLowerCase().contains("exception") ||
+            exceptionType.contains("Error")) {
             return Severity.MEDIUM;
         }
 

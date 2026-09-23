@@ -64,7 +64,7 @@ class IncidentServiceTest {
 
     @Test
     void handle_newAnomaly_createsIncident() {
-        when(incidentRepository.findByFingerprintAndStatus(any(), eq(IncidentStatus.OPEN)))
+        when(incidentRepository.findFirstByFingerprintAndStatusIn(any(), any()))
                 .thenReturn(Optional.empty());
         when(incidentRepository.save(any(Incident.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -89,7 +89,7 @@ class IncidentServiceTest {
         existing.setOccurrenceCount(3);
         existing.setLastSeen(Instant.now().minusSeconds(60));
 
-        when(incidentRepository.findByFingerprintAndStatus(any(), eq(IncidentStatus.OPEN)))
+        when(incidentRepository.findFirstByFingerprintAndStatusIn(any(), any()))
                 .thenReturn(Optional.of(existing));
         when(incidentRepository.save(any(Incident.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -99,6 +99,27 @@ class IncidentServiceTest {
         assertEquals(4, result.getOccurrenceCount());
         assertEquals(Severity.HIGH, result.getSeverity()); // escalated from MEDIUM to HIGH
         assertTrue(result.getRelatedLogIds().contains("log-123"));
+        verify(notificationHub).dispatch(any(Incident.class), eq(IncidentEvent.RECURRED));
+    }
+
+    @Test
+    void handle_acknowledgedIncident_updatesRecurrenceWithoutReopening() {
+        Incident existing = new Incident();
+        existing.setFingerprint("STACK_TRACE_EXCEPTION::api-gw");
+        existing.setStatus(IncidentStatus.ACKNOWLEDGED);
+        existing.setSeverity(Severity.MEDIUM);
+        existing.setOccurrenceCount(2);
+        existing.setLastSeen(Instant.now().minusSeconds(60));
+
+        when(incidentRepository.findFirstByFingerprintAndStatusIn(any(), any()))
+                .thenReturn(Optional.of(existing));
+        when(incidentRepository.save(any(Incident.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        Incident result = incidentService.handle(makeAnomaly(), makeLog("api-gw", "boom"));
+
+        assertEquals(3, result.getOccurrenceCount());
+        assertEquals(IncidentStatus.ACKNOWLEDGED, result.getStatus()); // pas de doublon, statut conservé
         verify(notificationHub).dispatch(any(Incident.class), eq(IncidentEvent.RECURRED));
     }
 
@@ -122,6 +143,16 @@ class IncidentServiceTest {
     }
 
     @Test
+    void acknowledge_nonOpenIncident_throws() {
+        Incident inc = new Incident();
+        inc.setStatus(IncidentStatus.ACKNOWLEDGED);
+        when(incidentRepository.findById("id-ack")).thenReturn(Optional.of(inc));
+
+        assertThrows(IllegalArgumentException.class, () -> incidentService.acknowledge("id-ack"));
+        verify(incidentRepository, never()).save(any());
+    }
+
+    @Test
     void resolve_existingIncident_setsResolved() {
         Incident inc = new Incident();
         inc.setStatus(IncidentStatus.ACKNOWLEDGED);
@@ -139,5 +170,15 @@ class IncidentServiceTest {
     void resolve_nonExistent_returnsEmpty() {
         when(incidentRepository.findById("nope")).thenReturn(Optional.empty());
         assertTrue(incidentService.resolve("nope").isEmpty());
+    }
+
+    @Test
+    void resolve_alreadyResolved_throws() {
+        Incident inc = new Incident();
+        inc.setStatus(IncidentStatus.RESOLVED);
+        when(incidentRepository.findById("id-res")).thenReturn(Optional.of(inc));
+
+        assertThrows(IllegalArgumentException.class, () -> incidentService.resolve("id-res"));
+        verify(incidentRepository, never()).save(any());
     }
 }

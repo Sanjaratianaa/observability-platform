@@ -14,9 +14,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class ErrorRateAnomalyDetectorTest {
 
     private LogEntry logWith(String level) {
+        return logWith(level, "test");
+    }
+
+    private LogEntry logWith(String level, String source) {
         LogEntry e = new LogEntry();
         e.setLevel(level);
-        e.setSource("test");
+        e.setSource(source);
         e.setMessage("msg");
         e.setTimestamp(Instant.now());
         return e;
@@ -66,5 +70,18 @@ class ErrorRateAnomalyDetectorTest {
         Optional<Anomaly> result = detector.detect(logWith("ERROR"));
         assertTrue(result.isPresent());
         assertEquals(Severity.HIGH, result.get().getSeverity());
+    }
+
+    @Test
+    void detect_errorSpikeInOneSource_doesNotLeakIntoOther() {
+        ErrorRateAnomalyDetector detector = new ErrorRateAnomalyDetector();
+        // Pic d'erreurs sur "api"
+        for (int i = 0; i < 10; i++) {
+            detector.detect(logWith("ERROR", "api"));
+        }
+        // La fenêtre de "web" est indépendante : des logs INFO n'héritent pas du pic
+        for (int i = 0; i < 10; i++) {
+            assertTrue(detector.detect(logWith("INFO", "web")).isEmpty());
+        }
     }
 }

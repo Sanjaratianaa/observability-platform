@@ -19,6 +19,9 @@ import java.util.Optional;
 @Service
 public class IncidentService {
 
+    private static final List<IncidentStatus> ACTIVE_STATUSES =
+            List.of(IncidentStatus.OPEN, IncidentStatus.ACKNOWLEDGED);
+
     private final IncidentRepository incidentRepository;
     private final NotificationHub notificationHub;
     private final AuditService auditService;
@@ -36,7 +39,7 @@ public class IncidentService {
         String fingerprint = buildFingerprint(anomaly, sourceLog);
 
         Optional<Incident> existing =
-                incidentRepository.findByFingerprintAndStatus(fingerprint, IncidentStatus.OPEN);
+                incidentRepository.findFirstByFingerprintAndStatusIn(fingerprint, ACTIVE_STATUSES);
 
         if (existing.isPresent()) {
             return updateRecurring(existing.get(), anomaly, sourceLog);
@@ -86,6 +89,10 @@ public class IncidentService {
 
     public Optional<Incident> acknowledge(String id) {
         return incidentRepository.findById(id).map(incident -> {
+            if (incident.getStatus() != IncidentStatus.OPEN) {
+                throw new IllegalArgumentException(
+                        "Seul un incident OPEN peut être acknowledgé (statut actuel : " + incident.getStatus() + ")");
+            }
             incident.setStatus(IncidentStatus.ACKNOWLEDGED);
             Incident saved = incidentRepository.save(incident);
             auditService.record("INCIDENT_ACKNOWLEDGED", "INCIDENT", id, null, "user");
@@ -95,6 +102,9 @@ public class IncidentService {
 
     public Optional<Incident> resolve(String id) {
         return incidentRepository.findById(id).map(incident -> {
+            if (incident.getStatus() == IncidentStatus.RESOLVED) {
+                throw new IllegalArgumentException("Incident déjà résolu");
+            }
             incident.setStatus(IncidentStatus.RESOLVED);
             Incident saved = incidentRepository.save(incident);
             metrics.incidentResolved();

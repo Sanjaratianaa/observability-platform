@@ -66,4 +66,29 @@ class StackTraceAnomalyDetectorTest {
         assertTrue(result.isPresent());
         assertEquals(Severity.MEDIUM, result.get().getSeverity());
     }
+
+    @Test
+    void detect_looseExceptionWording_returnsHigh() {
+        // Cas réel du sample json.log : "NullPointer exception" (minuscule, mot séparé)
+        Optional<Anomaly> result = detector.detect(logWith("NullPointer exception"));
+
+        assertTrue(result.isPresent());
+        assertEquals(Severity.HIGH, result.get().getSeverity());
+        assertTrue(result.get().getDescription().contains("NullPointer"));
+    }
+
+    @Test
+    void detect_errorType_returnsHigh() {
+        Optional<Anomaly> result = detector.detect(logWith("java.lang.OutOfMemoryError: Java heap space"));
+
+        assertTrue(result.isPresent());
+        assertEquals(Severity.HIGH, result.get().getSeverity());
+        assertTrue(result.get().getDescription().contains("OutOfMemoryError"));
+    }
+
+    @Test
+    void detect_benignErrorWord_returnsEmpty() {
+        // "error" seul n'est pas une stack trace
+        assertTrue(detector.detect(logWith("handled error")).isEmpty());
+    }
 }
