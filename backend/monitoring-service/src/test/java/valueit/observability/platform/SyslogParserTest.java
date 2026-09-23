@@ -32,7 +32,7 @@ class SyslogParserTest {
         LogEntry entry = parser.parse(raw);
         assertEquals("ERROR", entry.getLevel());
         assertEquals("Kernel panic", entry.getMessage());
-        assertEquals("server/kernel", entry.getSource());
+        assertEquals("kernel", entry.getSource());
     }
 
     @Test

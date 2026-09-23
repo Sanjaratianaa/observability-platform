@@ -30,8 +30,8 @@ class ApacheLogParserTest {
         String raw = "10.0.0.1 - - [10/Oct/2026:13:55:36 +0000] \"GET /api/health HTTP/1.1\" 200 512";
         LogEntry entry = parser.parse(raw);
         assertEquals("INFO", entry.getLevel());
-        assertEquals("GET /api/health -> 200", entry.getMessage());
-        assertEquals("10.0.0.1", entry.getSource());
+        assertEquals("GET /api/health → 200 (from 10.0.0.1)", entry.getMessage());
+        assertEquals("apache", entry.getSource());
         assertNotNull(entry.getTimestamp());
     }
 

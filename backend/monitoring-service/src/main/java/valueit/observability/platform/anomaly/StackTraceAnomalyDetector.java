@@ -18,9 +18,10 @@ public class StackTraceAnomalyDetector implements AnomalyDetector{
             "Caused by:\\s([\\w.]+(?:Exception|Error))"
     );
 
-    // Déclenche sur "exception" (casse libre) ou un type *Error (ex: OutOfMemoryError)
+    // Déclenche sur "exception" (casse libre), un type *Exception (ex: NullPointerException)
+    // ou un type *Error (ex: OutOfMemoryError)
     private static final Pattern TRIGGER_PATTERN = Pattern.compile(
-            "(?i:\\bexception\\b)|[\\w.$]*Error\\b"
+            "(?i:\\bexception\\b)|[\\w.$]*(?:Exception|Error)\\b"
     );
 
     private static final Pattern EXCEPTION_TYPE_PATTERN = Pattern.compile(
