@@ -11,9 +11,11 @@ export async function fetchLogsByLevel(level) {
 }
 
 export async function searchLogs(from, to, level) {
-  let url = `${BASE}/logs/search?from=${from}&to=${to}`;
-  if (level) url += `&level=${level}`;
-  const res = await fetch(url);
+  const params = new URLSearchParams();
+  params.set('from', new Date(from).toISOString());
+  params.set('to', new Date(to).toISOString());
+  if (level) params.set('level', level);
+  const res = await fetch(`${BASE}/logs/search?${params}`);
   return res.json();
 }
 

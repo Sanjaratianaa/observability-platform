@@ -46,7 +46,7 @@ class ApacheLogParserTest {
     void parse_status404_returnsWarning() {
         String raw = "10.0.0.1 - - [10/Oct/2026:13:55:36 +0000] \"GET /missing HTTP/1.1\" 404 0";
         LogEntry entry = parser.parse(raw);
-        assertEquals("WARNING", entry.getLevel());
+        assertEquals("WARN", entry.getLevel());
     }
 
     @Test

@@ -61,7 +61,7 @@ public class SyslogParser implements LogParser {
         }
         return switch (m.group(1).toLowerCase()) {
             case "emerg", "alert", "crit", "critical", "error", "err" -> "ERROR";
-            case "warn", "warning" -> "WARNING";
+            case "warn", "warning" -> "WARN";
             case "debug" -> "DEBUG";
             default -> "INFO"; // info, notice
         };
@@ -70,7 +70,7 @@ public class SyslogParser implements LogParser {
     private String severityToLevel(int severity) {
         return switch (severity) {
             case 0, 1, 2, 3 -> "ERROR";
-            case 4 -> "WARNING";
+            case 4 -> "WARN";
             case 5, 6 -> "INFO";
             case 7 -> "DEBUG";
             default -> "INFO";

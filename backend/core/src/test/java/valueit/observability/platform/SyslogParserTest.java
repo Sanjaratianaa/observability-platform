@@ -37,10 +37,10 @@ class SyslogParserTest {
 
     @Test
     void parse_warningSeverity_returnsWarning() {
-        // priority 12 → severity = 12 % 8 = 4 → WARNING
+        // priority 12 → severity = 12 % 8 = 4 → WARN
         String raw = "<12>Oct  5 12:34:56 server app: Low disk space";
         LogEntry entry = parser.parse(raw);
-        assertEquals("WARNING", entry.getLevel());
+        assertEquals("WARN", entry.getLevel());
     }
 
     @Test

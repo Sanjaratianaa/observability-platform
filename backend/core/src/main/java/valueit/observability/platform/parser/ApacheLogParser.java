@@ -33,7 +33,7 @@ public class ApacheLogParser implements LogParser {
         int statusCode = Integer.parseInt(matcher.group(5));
 
         String level = statusCode >= 500 ? "ERROR"
-                : statusCode >= 400 ? "WARNING"
+                : statusCode >= 400 ? "WARN"
                 : "INFO";
 
         LogEntry entry = new LogEntry();

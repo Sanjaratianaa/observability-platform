@@ -13,6 +13,7 @@ import valueit.observability.platform.incident.IncidentStatus;
 import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.model.LogEntry;
 import valueit.observability.platform.metadata.AuditService;
+import valueit.observability.platform.metrics.PlatformMetrics;
 import valueit.observability.platform.notification.NotificationHub;
 import valueit.observability.platform.repository.IncidentRepository;
 import valueit.observability.platform.service.IncidentService;
@@ -37,11 +38,14 @@ class IncidentServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private PlatformMetrics metrics;
+
     private IncidentService incidentService;
 
     @BeforeEach
     void setUp() {
-        incidentService = new IncidentService(incidentRepository, notificationHub, auditService);
+        incidentService = new IncidentService(incidentRepository, notificationHub, auditService, metrics);
     }
 
     private LogEntry makeLog(String source, String message) {
