@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: chatops-service
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: chatops-service
+
+incident:
+  service:
+    url: ${INCIDENT_SERVICE_URL:http://localhost:8082}

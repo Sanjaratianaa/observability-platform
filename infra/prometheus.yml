@@ -5,4 +5,4 @@ scrape_configs:
   - job_name: 'observability-backend'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['backend:8082']
+      - targets: ['monitoring-service:8081', 'incident-service:8082', 'chatops-service:8083']

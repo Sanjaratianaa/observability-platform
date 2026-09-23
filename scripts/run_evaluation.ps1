@@ -7,10 +7,14 @@
 #   .\scripts\run_evaluation.ps1 -StartStack        # demarre docker compose d'abord
 #   .\scripts\run_evaluation.ps1 -Reset             # purge les index ES avant injection
 #   .\scripts\run_evaluation.ps1 -Runs 3            # 3 repetitions (purge auto entre runs)
-#   .\scripts\run_evaluation.ps1 -BaseUrl http://localhost:8082 -EsUrl http://localhost:9200
+#   .\scripts\run_evaluation.ps1 -MonitoringUrl http://localhost:8081 -IncidentUrl http://localhost:8082
+#
+# Architecture microservices : monitoring-service (8081) = ingestion + detection,
+# incident-service (8082) = incidents + notifications + audit.
 
 param(
-    [string]$BaseUrl = "http://localhost:8082",
+    [string]$MonitoringUrl = "http://localhost:8081",
+    [string]$IncidentUrl = "http://localhost:8082",
     [string]$EsUrl = "http://localhost:9200",
     [switch]$StartStack,
     [switch]$Reset,
@@ -31,18 +35,20 @@ if ($StartStack) {
     docker compose -f (Join-Path $RepoRoot "infra\docker-compose.yml") up --build -d
 }
 
-# --- 2) Attente du backend ----------------------------------------------------
-Write-Host "==> Attente du backend sur $BaseUrl (timeout ${HealthTimeoutSec}s)"
-$deadline = (Get-Date).AddSeconds($HealthTimeoutSec)
-$healthy = $false
-while ((Get-Date) -lt $deadline) {
-    try {
-        $health = Invoke-RestMethod -Uri "$BaseUrl/actuator/health" -TimeoutSec 5
-        if ($health.status -eq "UP") { $healthy = $true; break }
-    } catch { Start-Sleep -Seconds 3 }
+# --- 2) Attente des services --------------------------------------------------
+foreach ($svc in @(@{n='monitoring'; u=$MonitoringUrl}, @{n='incident'; u=$IncidentUrl})) {
+    Write-Host "==> Attente de $($svc.n)-service sur $($svc.u) (timeout ${HealthTimeoutSec}s)"
+    $deadline = (Get-Date).AddSeconds($HealthTimeoutSec)
+    $healthy = $false
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $health = Invoke-RestMethod -Uri "$($svc.u)/actuator/health" -TimeoutSec 5
+            if ($health.status -eq "UP") { $healthy = $true; break }
+        } catch { Start-Sleep -Seconds 3 }
+    }
+    if (-not $healthy) { Write-Error "$($svc.n)-service non disponible sur $($svc.u)"; exit 1 }
+    Write-Host "    $($svc.n)-service UP"
 }
-if (-not $healthy) { Write-Error "Backend non disponible sur $BaseUrl"; exit 1 }
-Write-Host "    Backend UP"
 
 # --- Ground truth (charge une fois) -------------------------------------------
 $gt = Import-Csv $GroundTruth
@@ -66,7 +72,7 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
     # --- Snapshot des incidents existants (pour ne compter que les nouveaux) ---
     $beforeIds = @()
     try {
-        $beforeIds = @(Invoke-RestMethod -Uri "$BaseUrl/api/incidents" -TimeoutSec 10 | ForEach-Object { $_.id })
+        $beforeIds = @(Invoke-RestMethod -Uri "$IncidentUrl/api/incidents" -TimeoutSec 10 | ForEach-Object { $_.id })
     } catch { Write-Warning "Impossible de lister les incidents existants" }
 
     # --- Injection des fichiers de logs ---------------------------------------
@@ -76,7 +82,7 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
         Write-Host "==> Injection $($file.Name)"
         $body = Get-Content $file.FullName -Raw
         try {
-            $result = Invoke-RestMethod -Uri "$BaseUrl/api/logs/raw/bulk?source=$source" `
+            $result = Invoke-RestMethod -Uri "$MonitoringUrl/api/logs/raw/bulk?source=$source" `
                 -Method Post -Body $body -ContentType "text/plain; charset=utf-8" -TimeoutSec 60
             Write-Host ("    recus={0} ingeres={1} erreurs_parse={2} anomalies={3}" -f `
                 $result.received, $result.ingested, $result.parseErrors, $result.anomaliesDetected)
@@ -96,12 +102,14 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
     Start-Sleep -Seconds 5
 
     # --- Collecte incidents + metriques ---------------------------------------
-    $incidents = @(Invoke-RestMethod -Uri "$BaseUrl/api/incidents" -TimeoutSec 15)
+    $incidents = @(Invoke-RestMethod -Uri "$IncidentUrl/api/incidents" -TimeoutSec 15)
     $newIncidents = @($incidents | Where-Object { $beforeIds -notcontains $_.id })
     $incidents | ConvertTo-Json -Depth 5 | Out-File (Join-Path $RunDir "incidents.json") -Encoding utf8
     try {
-        Invoke-WebRequest -Uri "$BaseUrl/actuator/prometheus" `
-            -OutFile (Join-Path $RunDir "prometheus.txt") -TimeoutSec 15
+        Invoke-WebRequest -Uri "$MonitoringUrl/actuator/prometheus" `
+            -OutFile (Join-Path $RunDir "prometheus-monitoring.txt") -TimeoutSec 15
+        Invoke-WebRequest -Uri "$IncidentUrl/actuator/prometheus" `
+            -OutFile (Join-Path $RunDir "prometheus-incident.txt") -TimeoutSec 15
     } catch { Write-Warning "Endpoint prometheus inaccessible" }
 
     # --- Comparaison avec le ground truth -------------------------------------
@@ -162,7 +170,7 @@ for ($r = 1; $r -le $Runs; $r++) {
 
 # --- Agregation multi-runs ------------------------------------------------------
 $summary = [pscustomobject]@{
-    timestamp = (Get-Date -Format "o"); base_url = $BaseUrl
+    timestamp = (Get-Date -Format "o"); monitoring_url = $MonitoringUrl; incident_url = $IncidentUrl
     runs = $Runs; files_evaluated = $gtFiles.Count
     results = $runSummaries
 }

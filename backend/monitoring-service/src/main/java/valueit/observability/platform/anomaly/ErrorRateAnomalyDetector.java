@@ -1,0 +1,48 @@
+package valueit.observability.platform.anomaly;
+
+import org.springframework.stereotype.Component;
+import valueit.observability.platform.incident.Severity;
+import valueit.observability.platform.model.LogEntry;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
+public class ErrorRateAnomalyDetector implements AnomalyDetector {
+
+    private static final long WINDOW_SECONDS = 300; // 5 minutes
+    private static final double ERROR_RATE_THRESHOLD = 0.30; // 30%
+    private static final int MIN_LOGS_BEFORE_CHECKING = 10; // évite les faux positifs sur peu de données
+
+    // Fenêtre indépendante par source : un pic d'erreurs d'un service
+    // ne doit pas être dilué (ni attribué) par les logs des autres
+    private final Map<String, SlidingWindowCounter> counters = new ConcurrentHashMap<>();
+
+    @Override
+    public Optional<Anomaly> detect(LogEntry entry) {
+        String source = entry.getSource() != null ? entry.getSource() : "unknown";
+        SlidingWindowCounter counter =
+                counters.computeIfAbsent(source, s -> new SlidingWindowCounter(WINDOW_SECONDS));
+        counter.record(entry.getLevel());
+
+        if (counter.totalCount() < MIN_LOGS_BEFORE_CHECKING) {
+            return Optional.empty();
+        }
+
+        double rate = counter.errorRate();
+
+        if (rate >= ERROR_RATE_THRESHOLD) {
+            Anomaly anomaly = new Anomaly(
+                    "HIGH_ERROR_RATE",
+                    String.format("Taux d'erreur de %.0f%% sur les %d dernières minutes (source: %s)",
+                            rate * 100, WINDOW_SECONDS / 60, source),
+                    rate >= 0.50 ? Severity.CRITICAL : Severity.HIGH,
+                    entry.getMessage()
+            );
+            return Optional.of(anomaly);
+        }
+
+        return Optional.empty();
+    }
+}
