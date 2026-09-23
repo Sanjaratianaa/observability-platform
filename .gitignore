@@ -18,7 +18,10 @@ build/
 
 # Results and temporary artifacts
 results/
+
+# Log files (but keep evaluation sample data)
 *.log
+!data/sample/*.log
 
 # OS files
 .DS_Store

@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { LayoutDashboard, ScrollText, AlertTriangle, Radio } from 'lucide-react';
+import { LayoutDashboard, ScrollText, AlertTriangle, Radio, Terminal, History } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
 import Incidents from './pages/Incidents';
+import ChatOps from './pages/ChatOps';
+import Audit from './pages/Audit';
 
 function App() {
   return (
@@ -31,6 +33,11 @@ function App() {
             <SideLink to="/" icon={<LayoutDashboard size={15} />} label="Dashboard" />
             <SideLink to="/logs" icon={<ScrollText size={15} />} label="Logs" />
             <SideLink to="/incidents" icon={<AlertTriangle size={15} />} label="Incidents" />
+            <div className="px-3 py-1.5 mt-3 text-[10px] font-medium uppercase tracking-wider" style={{ color: '#4a4f5a' }}>
+              Outils
+            </div>
+            <SideLink to="/chatops" icon={<Terminal size={15} />} label="ChatOps" />
+            <SideLink to="/audit" icon={<History size={15} />} label="Audit" />
           </div>
 
           {/* Status */}
@@ -48,6 +55,8 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/incidents" element={<Incidents />} />
+            <Route path="/chatops" element={<ChatOps />} />
+            <Route path="/audit" element={<Audit />} />
           </Routes>
         </main>
       </div>

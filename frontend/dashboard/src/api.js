@@ -42,3 +42,26 @@ export async function resolveIncident(id) {
   const res = await fetch(`${BASE}/incidents/${id}/resolve`, { method: 'PUT' });
   return res.json();
 }
+
+export async function sendChatOps(command) {
+  const res = await fetch(`${BASE}/chatops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: command,
+  });
+  return res.text();
+}
+
+export async function fetchAudit(action) {
+  let url = `${BASE}/audit`;
+  if (action) url += `?action=${action}`;
+  const res = await fetch(url);
+  return res.json();
+}
+
+export async function fetchNotifications(channel) {
+  let url = `${BASE}/notifications`;
+  if (channel) url += `?channel=${channel}`;
+  const res = await fetch(url);
+  return res.json();
+}
