@@ -25,6 +25,8 @@
 
 ## Architecture
 
+Architecture **microservices** — trois services Spring Boot indépendants communiquant par REST :
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Sources de logs                          │
@@ -33,31 +35,38 @@
                            │ POST /api/logs/raw[/bulk]
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Moteur de Parsing                           │
-│         JsonLogParser │ SyslogParser │ ApacheLogParser          │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ LogEntry
-                           ▼
+│              monitoring-service  (port 8081)                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Moteur de Parsing                                        │  │
+│  │  JsonLogParser │ SyslogParser │ ApacheLogParser           │  │
+│  └──────────────────────────┬────────────────────────────────┘  │
+│                             ▼ LogEntry → Elasticsearch          │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Détection d'anomalies                                    │  │
+│  │  ErrorRateDetector │ KeywordDetector │ StackTraceDetector │  │
+│  └──────────────────────────┬────────────────────────────────┘  │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │ AnomalyReport (REST)
+                              ▼ POST /internal/anomalies
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Détection d'anomalies                          │
-│  ErrorRateDetector │ KeywordDetector │ StackTraceDetector       │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ Anomaly
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    IncidentService                              │
-│        Corrélation (fingerprint) │ Déduplication               │
-│            Escalade de sévérité │ Persistance ES               │
-└──────────────┬──────────────────────────┬───────────────────────┘
-               │                          │
-               ▼                          ▼
-┌──────────────────────┐    ┌─────────────────────────────────────┐
-│    NotificationHub   │    │         AuditService (JPA)          │
-│  ┌────────────────┐  │    │     audit_log + notification_record │
-│  │ TeamsNotifier   │  │    └─────────────────────────────────────┘
-│  │ JiraNotifier    │  │
-│  └────────────────┘  │
-└──────────────────────┘
+│               incident-service  (port 8082)                     │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  IncidentService : corrélation (fingerprint),             │  │
+│  │  déduplication, escalade de sévérité → Elasticsearch      │  │
+│  └──────────────┬──────────────────────────┬─────────────────┘  │
+│                 ▼                          ▼                    │
+│  ┌──────────────────────┐    ┌───────────────────────────────┐  │
+│  │   NotificationHub    │    │      AuditService (JPA)       │  │
+│  │  TeamsNotifier       │    │  audit_log + notif_record     │  │
+│  │  JiraNotifier        │    │  → H2 / PostgreSQL            │  │
+│  └──────────────────────┘    └───────────────────────────────┘  │
+└─────────────────────────────▲───────────────────────────────────┘
+                              │ REST /api/incidents
+┌─────────────────────────────┴───────────────────────────────────┐
+│               chatops-service  (port 8083)                      │
+│   POST /api/chatops — commandes list, stats, ack, resolve       │
+│   déléguées à incident-service via IncidentApiClient            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -99,8 +108,10 @@ docker compose -f infra/docker-compose.yml up --build
 | Service | URL |
 |---------|-----|
 | Frontend (Dashboard) | http://localhost:8090 |
-| Backend API | http://localhost:8082 |
-| Swagger UI | http://localhost:8082/swagger-ui.html |
+| monitoring-service | http://localhost:8081 |
+| incident-service | http://localhost:8082 |
+| chatops-service | http://localhost:8083 |
+| Swagger UI | http://localhost:8081/swagger-ui.html (par service) |
 | Elasticsearch | http://localhost:9200 |
 | Prometheus | http://localhost:9091 |
 
@@ -112,14 +123,13 @@ docker compose -f infra/docker-compose.yml up --build
 docker compose -f infra/docker-compose.yml up elasticsearch -d
 ```
 
-**2. Démarrer le backend :**
+**2. Démarrer les services backend** (depuis `backend/`, un terminal par service) :
 
 ```bash
-cd backend/core
-./mvnw spring-boot:run
+./mvnw spring-boot:run -pl monitoring-service   # port 8081
+./mvnw spring-boot:run -pl incident-service     # port 8082 (H2 en mémoire en dev)
+./mvnw spring-boot:run -pl chatops-service      # port 8083
 ```
-
-Le backend démarre sur le port `8082` avec H2 en mémoire (pas besoin de PostgreSQL en dev).
 
 **3. Démarrer le frontend :**
 
@@ -135,9 +145,7 @@ Le frontend Vite démarre sur `http://localhost:5173` avec proxy vers le backend
 
 ## API Endpoints
 
-Port par défaut : **8082**
-
-### Ingestion de logs
+### monitoring-service — port **8081** (logs)
 
 | Méthode | URL | Description |
 |---------|-----|-------------|
@@ -154,7 +162,7 @@ Port par défaut : **8082**
 | `GET` | `/api/logs/level/{level}` | Filtrer par niveau (ERROR, WARN, INFO, DEBUG) |
 | `GET` | `/api/logs/search?from=...&to=...&level=...` | Recherche temporelle |
 
-### Gestion des incidents
+### incident-service — port **8082** (incidents, audit, notifications)
 
 | Méthode | URL | Description |
 |---------|-----|-------------|
@@ -164,41 +172,47 @@ Port par défaut : **8082**
 | `PUT` | `/api/incidents/{id}/resolve` | Résoudre (→ RESOLVED) |
 | `GET` | `/api/incidents/stats` | Statistiques par statut |
 
-### ChatOps & Monitoring
+### chatops-service — port **8083** & endpoints transverses
 
 | Méthode | URL | Description |
 |---------|-----|-------------|
 | `POST` | `/api/chatops` | Commande ChatOps (`list`, `stats`, `ack <id>`, `resolve <id>`) |
-| `GET` | `/actuator/health` | Health check |
-| `GET` | `/actuator/prometheus` | Métriques Prometheus |
-| `GET` | `/swagger-ui.html` | Documentation interactive |
+| `GET` | `/actuator/health` | Health check (chaque service) |
+| `GET` | `/actuator/prometheus` | Métriques Prometheus (chaque service) |
+| `GET` | `/swagger-ui.html` | Documentation interactive (chaque service) |
+
+> Endpoint interne : `POST /internal/anomalies` sur incident-service (appelé par monitoring-service, masqué dans Swagger).
 
 ---
 
 ## Pipeline de traitement
 
 ```
-Log brut (texte) ──→ LogParsingService
-                        ├─ JsonLogParser     (logs JSON)
-                        ├─ SyslogParser      (RFC 3164, <PRI> optionnel)
-                        └─ ApacheLogParser   (access log Apache)
-                              │
-                              ▼ LogEntry (sauvegardé dans ES)
-                     AnomalyDetectionService
-                        ├─ ErrorRateAnomalyDetector   (fenêtre glissante 5min, seuil 30%)
-                        ├─ KeywordAnomalyDetector      (OOM, deadlock, timeout, etc.)
-                        └─ StackTraceAnomalyDetector   (extraction root cause)
-                              │
-                              ▼ Anomaly
-                     IncidentService.handle()
-                        ├─ Fingerprint = type::source (déduplication)
-                        ├─ Nouvel incident → OPEN + notification
-                        └─ Récurrence → occurrenceCount++ + escalade sévérité
-                              │
-                              ▼
-                     NotificationHub (@Async)
-                        ├─ TeamsNotifier   (webhook, CREATED uniquement)
-                        └─ JiraNotifier    (HIGH/CRITICAL: crée ticket, commente récurrences)
+monitoring-service (8081)
+  Log brut (texte) ──→ LogParsingService
+                          ├─ JsonLogParser     (logs JSON)
+                          ├─ SyslogParser      (RFC 3164, <PRI> optionnel)
+                          └─ ApacheLogParser   (access log Apache)
+                                │
+                                ▼ LogEntry (sauvegardé dans ES)
+                       AnomalyDetectionService
+                          ├─ ErrorRateAnomalyDetector   (fenêtre glissante 5min, seuil 30%)
+                          ├─ KeywordAnomalyDetector      (OOM, deadlock, timeout, etc.)
+                          └─ StackTraceAnomalyDetector   (extraction root cause)
+                                │
+                                ▼ AnomalyReport
+                       IncidentClient ──REST──→ POST /internal/anomalies
+─────────────────────────────────────────────────────────────────
+incident-service (8082)
+                       IncidentService.handle()
+                          ├─ Fingerprint = type::source (déduplication)
+                          ├─ Nouvel incident → OPEN + notification
+                          └─ Récurrence → occurrenceCount++ + escalade sévérité
+                                │
+                                ▼
+                       NotificationHub (@Async)
+                          ├─ TeamsNotifier   (webhook, CREATED uniquement)
+                          └─ JiraNotifier    (HIGH/CRITICAL: crée ticket, commente récurrences)
 ```
 
 ### Sévérités
@@ -239,26 +253,20 @@ Interface conversationnelle via `POST /api/chatops` :
 
 ## Tests
 
-60 tests unitaires (pas besoin d'Elasticsearch) :
+Tests répartis par module (unitaires, pas besoin d'Elasticsearch) :
 
 ```bash
-cd backend/core
+cd backend
 ./mvnw test
 ```
 
-| Suite de tests | Tests |
-|----------------|-------|
-| `JsonLogParserTest` | 6 — parsing JSON, cas limites |
-| `ApacheLogParserTest` | 6 — parsing Apache, niveaux HTTP |
-| `SyslogParserTest` | 7 — parsing Syslog, sévérités 0-7 |
-| `StackTraceAnomalyDetectorTest` | 8 — NPE, CausedBy, *Error, casse libre, sévérités |
-| `KeywordAnomalyDetectorTest` | 7 — OOM, deadlock, timeout |
-| `ErrorRateAnomalyDetectorTest` | 5 — seuil, taux 30%/50%+, isolation par source |
-| `SeverityTest` | 4 — enum max(), ordinal |
-| `IncidentServiceTest` | 9 — création, récurrence (OPEN/ACK), ACK, resolve, gardes d'état |
-| `AuditLogIntegrationTest` | Tests d'intégration audit |
-| `NotificationRecordIntegrationTest` | Tests d'intégration notifications |
-| `PlatformApplicationTests`, `SampleDataParsingTest` | Contexte Spring, parsing des fichiers sample |
+| Module | Suites de tests |
+|--------|-----------------|
+| `monitoring-service` | `JsonLogParserTest`, `ApacheLogParserTest`, `SyslogParserTest`, `StackTraceAnomalyDetectorTest`, `KeywordAnomalyDetectorTest`, `ErrorRateAnomalyDetectorTest`, `SampleDataParsingTest` |
+| `incident-service` | `IncidentServiceTest` (création, récurrence, ACK, resolve, gardes d'état), `SeverityTest`, `AuditLogIntegrationTest`, `NotificationRecordIntegrationTest` |
+| `chatops-service` | `ChatOpsServiceTest` (dispatch, help, commandes inconnues) |
+
+Les tests `@SpringBootTest` sont ignorés par défaut — activer avec `INTEGRATION_TESTS=true`.
 
 ---
 
@@ -298,24 +306,37 @@ Déclenché sur push/PR vers `main` et branches `sprint-*`.
 
 ```
 observability-platform/
-├── backend/core/                          # Backend Spring Boot
-│   ├── src/main/java/.../platform/
-│   │   ├── PlatformApplication.java       # Point d'entrée
-│   │   ├── controller/                    # REST controllers (Logs, Incidents, ChatOps, Metadata)
-│   │   ├── service/                       # Logique métier (Parsing, Detection, Incidents, ChatOps)
-│   │   ├── parser/                        # Parsers (JSON, Syslog, Apache)
-│   │   ├── anomaly/                       # Détecteurs (ErrorRate, Keyword, StackTrace)
-│   │   ├── incident/                      # Modèle Incident + enums
-│   │   ├── notification/                  # NotificationHub + Notifiers (Teams, Jira)
-│   │   ├── metadata/                      # Audit + NotificationRecord (JPA)
-│   │   ├── metrics/                       # PlatformMetrics (Prometheus counters)
-│   │   ├── model/                         # LogEntry (ES document)
-│   │   └── repository/                    # Spring Data repositories
-│   ├── src/main/resources/
-│   │   └── application.yaml               # Configuration externalisée
-│   ├── src/test/                           # 60 tests unitaires
-│   ├── Dockerfile                          # Multi-stage (JDK build → JRE runtime)
-│   └── pom.xml
+├── backend/                                # Maven multi-module (parent pom.xml + mvnw)
+│   ├── common/                             # Contrats partagés : LogEntry, Incident, enums,
+│   │                                       #   AnomalyReport (DTO inter-services), ElasticsearchSslConfig
+│   ├── monitoring-service/                 # Port 8081 — ingestion, parsing, détection d'anomalies
+│   │   ├── src/main/java/.../platform/
+│   │   │   ├── MonitoringApplication.java
+│   │   │   ├── controller/                # LogIngestionController, GlobalExceptionHandler
+│   │   │   ├── service/                   # LogParsingService, AnomalyDetectionService, IncidentClient
+│   │   │   ├── parser/                    # Parsers (JSON, Syslog, Apache)
+│   │   │   ├── anomaly/                   # Détecteurs (ErrorRate, Keyword, StackTrace)
+│   │   │   ├── metrics/                   # PlatformMetrics (logs, anomalies)
+│   │   │   └── repository/                # LogEntryRepository (ES)
+│   │   └── Dockerfile
+│   ├── incident-service/                   # Port 8082 — incidents, dédup, notifications, audit
+│   │   ├── src/main/java/.../platform/
+│   │   │   ├── IncidentApplication.java
+│   │   │   ├── controller/                # IncidentController, InternalAnomalyController, AuditController
+│   │   │   ├── service/                   # IncidentService (corrélation fingerprint)
+│   │   │   ├── notification/              # NotificationHub + TeamsNotifier + JiraNotifier
+│   │   │   ├── metadata/                  # AuditLog + NotificationRecord (JPA)
+│   │   │   ├── metrics/                   # PlatformMetrics (incidents, notifications)
+│   │   │   └── repository/                # IncidentRepository (ES)
+│   │   └── Dockerfile
+│   ├── chatops-service/                    # Port 8083 — interface conversationnelle
+│   │   ├── src/main/java/.../platform/
+│   │   │   ├── ChatOpsApplication.java
+│   │   │   ├── controller/                # ChatOpsController
+│   │   │   ├── service/                   # ChatOpsService, IncidentApiClient (REST)
+│   │   │   └── chatops/                   # Commandes : list, stats, ack, resolve
+│   │   └── Dockerfile
+│   └── api-tests.http                      # Requêtes de test (ports 8081/8082/8083)
 ├── frontend/dashboard/                     # Frontend React
 │   ├── src/
 │   │   ├── App.jsx                        # SPA + sidebar + router
@@ -342,16 +363,17 @@ observability-platform/
 
 ## Variables d'environnement
 
-| Variable | Défaut | Description |
-|----------|--------|-------------|
-| `SPRING_ELASTICSEARCH_URIS` | `http://localhost:9200` | URL Elasticsearch |
-| `SPRING_DATASOURCE_URL` | `jdbc:h2:mem:obsdb` | URL base de données JPA |
-| `SERVER_PORT` | `8082` | Port du backend |
-| `TEAMS_WEBHOOK_URL` | (placeholder) | Webhook Microsoft Teams |
-| `JIRA_BASE_URL` | (placeholder) | URL instance Jira |
-| `JIRA_EMAIL` | — | Email compte Jira |
-| `JIRA_API_TOKEN` | — | Token API Jira |
-| `JIRA_PROJECT_KEY` | `OPS` | Clé projet Jira |
+| Variable | Défaut | Service | Description |
+|----------|--------|---------|-------------|
+| `SPRING_ELASTICSEARCH_URIS` | `http://localhost:9200` | monitoring, incident | URL Elasticsearch |
+| `INCIDENT_SERVICE_URL` | `http://localhost:8082` | monitoring, chatops | URL de incident-service |
+| `SPRING_DATASOURCE_URL` | `jdbc:h2:mem:obsdb` | incident | URL base de données JPA |
+| `SERVER_PORT` | `8081`/`8082`/`8083` | tous | Port du service |
+| `TEAMS_WEBHOOK_URL` | (placeholder) | incident | Webhook Microsoft Teams |
+| `JIRA_BASE_URL` | (placeholder) | incident | URL instance Jira |
+| `JIRA_EMAIL` | — | incident | Email compte Jira |
+| `JIRA_API_TOKEN` | — | incident | Token API Jira |
+| `JIRA_PROJECT_KEY` | `OPS` | incident | Clé projet Jira |
 
 ---
 

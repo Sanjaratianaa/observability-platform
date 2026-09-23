@@ -45,22 +45,9 @@
 - [x] Secrets externalisés en variables d'env (Teams, Jira, **et mot de passe ES**)
 - [ ] Régénérer le mot de passe ES (l'ancien reste dans l'historique git)
 
-### Fichiers clés
+### Fichiers clés (obsolète — voir section Refonte microservices)
 ```
-backend/core/src/main/java/valueit/observability/platform/
-├── PlatformApplication.java              → point d'entrée
-├── ElasticSearchPingRunner.java          → test connexion + insert au démarrage
-├── ElasticsearchSslConfig.java           → config SSL trust-all (dev)
-├── model/LogEntry.java                   → entité log
-├── repository/
-│   ├── LogEntryRepository.java           → CRUD logs
-│   └── IncidentRepository.java           → CRUD incidents + corrélation
-├── controller/LogIngestionController.java → API REST ingestion
-├── parser/                               → LogParser, LogParsingService, Json/Syslog/Apache
-├── anomaly/                              → AnomalyDetector, détecteurs, SlidingWindowCounter
-├── incident/                             → Incident, IncidentStatus, IncidentEvent
-├── service/                              → LogParsingService, AnomalyDetectionService, IncidentService
-└── notification/                         → Notifier, NotificationHub, TeamsNotifier, JiraNotifier
+backend/core/  → supprimé, remplacé par backend/{common,monitoring-service,incident-service,chatops-service}
 ```
 
 ### Flux complet
@@ -121,70 +108,33 @@ Log brut → parse → LogEntry (ES)
 - [x] `.github/workflows/ci.yml` — pipeline CI : backend (compile+test) | frontend (build) | docker (validate)
 - [x] `application.yaml` externalisé via `${ENV_VAR:default}` pour Docker
 
-### Endpoints API (port 8082)
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| POST | `/api/logs/raw` | Ingérer un log brut (auto-parse + détection + notif) |
-| POST | `/api/logs` | Ingérer un log structuré |
-| POST | `/api/logs/bulk` | Ingérer plusieurs logs en lot |
-| GET | `/api/logs?page=0&size=50` | Lister les logs (paginé) |
-| GET | `/api/logs/level/{level}` | Filtrer par niveau |
-| GET | `/api/logs/search?from=...&to=...&level=...` | Recherche temporelle |
-| GET | `/api/incidents` | Lister les incidents (filtre ?status=&severity=) |
-| GET | `/api/incidents/{id}` | Détail d'un incident |
-| PUT | `/api/incidents/{id}/ack` | Acquitter un incident |
-| PUT | `/api/incidents/{id}/resolve` | Résoudre un incident |
-| GET | `/api/incidents/stats` | Nombre d'incidents par statut |
-| POST | `/api/chatops` | Commande ChatOps (list, stats, ack, resolve) |
-| GET | `/api/audit?action=` | Journal d'audit (filtre par action) |
-| GET | `/api/audit/incident/{id}` | Historique d'audit d'un incident |
-| GET | `/api/notifications?channel=` | Historique des notifications |
-| GET | `/api/notifications/failed` | Notifications en échec |
-| GET | `/actuator/prometheus` | Métriques Prometheus |
-| GET | `/swagger-ui.html` | Documentation API interactive |
+### Endpoints API (par service)
+| Service | Port | Endpoints |
+|---------|------|-----------|
+| monitoring-service | 8081 | `POST /api/logs/raw[/bulk]`, `POST /api/logs[/bulk]`, `GET /api/logs[?page&size]`, `GET /api/logs/level/{level}`, `GET /api/logs/search` |
+| incident-service | 8082 | `GET /api/incidents[?status&severity]`, `GET /api/incidents/{id}`, `PUT .../ack`, `PUT .../resolve`, `GET /api/incidents/stats`, `GET /api/audit*`, `GET /api/notifications*`, `POST /internal/anomalies` (interne) |
+| chatops-service | 8083 | `POST /api/chatops` (list, stats, ack, resolve) |
+| tous | — | `/actuator/health`, `/actuator/prometheus`, `/swagger-ui.html` |
 
-### Fichiers clés (mis à jour)
+### Fichiers clés (microservices)
 ```
-backend/core/src/main/java/valueit/observability/platform/
-├── PlatformApplication.java
-├── ElasticSearchPingRunner.java
-├── ElasticsearchSslConfig.java
-├── WebConfig.java                        → CORS
-├── OpenApiConfig.java                    → Swagger
-├── model/LogEntry.java
-├── repository/{LogEntry,Incident}Repository.java
-├── controller/
-│   ├── LogIngestionController.java       → ingestion + recherche
-│   ├── IncidentController.java           → CRUD incidents + stats
-│   ├── ChatOpsController.java            → commandes ChatOps
-│   ├── AuditController.java              → audit + notifications (ex-MetadataController fusionné)
-│   └── GlobalExceptionHandler.java       → gestion erreurs
-├── parser/                               → LogParser, Json/Syslog/Apache
-├── anomaly/                              → AnomalyDetector, détecteurs, SlidingWindowCounter
-├── incident/                             → Incident, IncidentStatus, IncidentEvent, Severity
-├── service/                              → LogParsing, AnomalyDetection, Incident, ChatOps
-└── notification/                         → Notifier, NotificationHub, Teams, Jira
+backend/                                  → parent pom.xml + mvnw (multi-module)
+├── common/                               → LogEntry, Incident, enums, AnomalyReport, ElasticsearchSslConfig
+├── monitoring-service/ (8081)            → ingestion, parsers, détecteurs, IncidentClient (REST)
+├── incident-service/  (8082)             → IncidentService, notifiers, audit JPA, /internal/anomalies
+└── chatops-service/   (8083)             → ChatOpsService, commandes, IncidentApiClient (REST)
 
-frontend/dashboard/src/
-├── App.jsx                               → SPA + sidebar + router
-├── api.js                                → fonctions API (fetch/search/ack/resolve)
-├── pages/
-│   ├── Dashboard.jsx                     → stats + pie chart
-│   ├── Logs.jsx                          → tableau paginé + recherche
-│   ├── Incidents.jsx                     → cartes + actions
-│   ├── ChatOps.jsx                       → terminal interactif
-│   └── Audit.jsx                         → journal d'audit + notifications
-
-infra/docker-compose.yml                  → ES + PostgreSQL + backend + frontend + Prometheus
-.github/workflows/ci.yml                  → CI pipeline
+frontend/dashboard/src/ (inchangé)
+infra/docker-compose.yml                  → ES + PostgreSQL + 3 services + frontend + Prometheus
+.github/workflows/ci.yml                  → CI : mvnw verify depuis backend/ (multi-module)
 ```
 
 ### Notes techniques
-- Variables d'env : `SPRING_ELASTICSEARCH_URIS`, `SPRING_ELASTICSEARCH_USERNAME`, `SPRING_ELASTICSEARCH_PASSWORD`, `SERVER_PORT`, `TEAMS_WEBHOOK_URL`, `JIRA_*`
-- Port backend : `8082` (configurable via `SERVER_PORT`)
+- Variables d'env : `SPRING_ELASTICSEARCH_URIS`, `INCIDENT_SERVICE_URL`, `SPRING_DATASOURCE_URL`, `SERVER_PORT`, `TEAMS_WEBHOOK_URL`, `JIRA_*`
+- Ports : monitoring `8081`, incident `8082`, chatops `8083`
 - Déploiement Docker : `docker compose -f infra/docker-compose.yml up --build`
-- Tests : `./mvnw test` (60 tests, pas besoin d'ES)
-- Swagger UI : `http://localhost:8082/swagger-ui.html`
+- Tests : `cd backend && ./mvnw test` (répartis par module)
+- Swagger UI : `http://localhost:808{1,2,3}/swagger-ui.html` (par service)
 
 ### Sprint 4 — Évaluation (en cours)
 - [x] `POST /api/logs/raw/bulk` — ingestion en lot (text/plain, 1 ligne = 1 log, ignore lignes vides/`#`, `?source=` force la source, retourne `BulkIngestResult`)
@@ -199,8 +149,19 @@ infra/docker-compose.yml                  → ES + PostgreSQL + backend + fronte
 - [x] **P2** — `run_evaluation.ps1` : `-Reset` (purge ES) + `-Runs N` (résultats par run + agrégat moyenne/écart-type) ; `detection.csv` enrichi des types d'incidents ; doc `plan-experiences.md` corrigée (endpoint `/api/logs/raw/bulk`)
 - [x] **P3** — `MetadataController` fusionné dans `AuditController` puis supprimé ; `@Order` sur les parsers (JSON → Apache → Syslog) ; timeouts `RestClient` (5s/10s) + payloads JSON construits via Jackson dans les notifiers ; README/progress.md resynchronisés
 
+### Session 23 sept. 2026 (suite) — Refonte microservices (fait)
+- [x] **Maven multi-module** — `backend/pom.xml` parent (Spring Boot 4.1.0, Java 21) + `mvnw` déplacé à la racine de `backend/` ; modules : `common`, `monitoring-service`, `incident-service`, `chatops-service`
+- [x] **`common`** — `LogEntry`, `Incident`, `IncidentStatus`, `IncidentEvent`, `Severity`, `AnomalyReport` (record DTO inter-services), `ElasticsearchSslConfig`
+- [x] **`monitoring-service` (8081)** — ingestion (`/api/logs*`), parsers, détecteurs, `IncidentClient` → `POST /internal/anomalies` (isolation de panne : log l'erreur sans bloquer l'ingestion)
+- [x] **`incident-service` (8082)** — `IncidentService.handle(AnomalyReport)`, `InternalAnomalyController` (`@Hidden`), notifiers, audit JPA, métriques incidents/notifications
+- [x] **`chatops-service` (8083)** — commandes réécrites sur `IncidentApiClient` (RestClient → `/api/incidents`), plus d'accès direct aux repositories
+- [x] **Infra** — `docker-compose.yml` : 3 services backend (build context `../backend`, Dockerfile par module) ; `prometheus.yml` : 3 targets ; `nginx.conf` + `vite.config.js` : routage `/api/logs`→8081, `/api/chatops`→8083, reste→8082 ; `ci.yml` : build depuis `backend/` ; `run_evaluation.ps1` : `-MonitoringUrl`/`-IncidentUrl` ; `api-tests.http` : ports corrigés
+- [x] **Tests** — répartis par module (parsers/détecteurs → monitoring, IncidentService/Severity/JPA → incident, ChatOpsService → chatops) ; `IncidentServiceTest` adapté à `AnomalyReport`
+- [x] **Nettoyage** — `backend/core` et `backend/orchestrator` supprimés ; README/progress resynchronisés
+- [ ] Vérifier `mvnw verify` sur une machine avec accès Maven Central (bloqué ici par le miroir HTTP forge.workit.fr)
+
 ### Prochaines étapes
 - [ ] Tester le frontend + backend end-to-end
 - [x] Spring Boot Actuator + métriques Prometheus (meta-observabilité)
-- [ ] README.md complet avec diagrammes d'architecture
+- [x] README.md complet avec diagrammes d'architecture
 - [ ] Merger sprint-3-interfaces → main

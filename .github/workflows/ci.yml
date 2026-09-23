@@ -24,7 +24,7 @@ jobs:
           cache: maven
 
       - name: Build & test
-        run: ./mvnw verify -B
+        run: bash ./mvnw verify -B
 
       - name: Upload test report
         if: always()
