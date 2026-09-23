@@ -70,8 +70,12 @@ docker compose up --build -d
 curl -sS http://localhost:8082/actuator/health
 curl -sS http://localhost:8082/actuator/prometheus | head -n 20
 
-# injection (adapter l'URL d'ingestion du backend)
-# curl -X POST "http://localhost:8082/ingest" -H 'Content-Type: text/plain' --data-binary @data/sample/apache.log
+# injection (endpoint réel : POST /api/logs/raw/bulk?source=<nom>)
+curl -X POST "http://localhost:8082/api/logs/raw/bulk?source=apache.log" -H 'Content-Type: text/plain' --data-binary @data/sample/apache.log
+
+# évaluation complète (injection + métriques + comparaison ground truth)
+.\scripts\run_evaluation.ps1 -Reset          # 1 run avec purge ES
+.\scripts\run_evaluation.ps1 -Runs 3         # 3 répétitions, moyenne ± écart-type
 
 
 ---
