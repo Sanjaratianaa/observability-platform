@@ -1,5 +1,6 @@
 package valueit.observability.platform.parser;
 
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import valueit.observability.platform.model.LogEntry;
 
@@ -8,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
+@Order(3)
 public class SyslogParser implements LogParser {
 
     private static final Pattern SYSLOG_PATTERN = Pattern.compile(

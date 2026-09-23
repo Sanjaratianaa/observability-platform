@@ -1,6 +1,6 @@
 # Observability Platform — Progress
 
-## Dernière session : 6 septembre 2026
+## Dernière session : 23 septembre 2026
 
 ### Sprint 1 — Connecteur ES (fait)
 - [x] Projet Spring Boot 4.1.0 initialisé (Java 21, Maven)
@@ -28,7 +28,7 @@
 
 ### Sprint 2 — Cœur de l'Orchestrateur (fait, à tester)
 - [x] Modèle `Incident` persisté (@Document, index "incidents") + `IncidentStatus` (OPEN/ACKNOWLEDGED/RESOLVED)
-- [x] `IncidentRepository` — `findByFingerprintAndStatus` pour la corrélation
+- [x] `IncidentRepository` — `findFirstByFingerprintAndStatusIn` (OPEN + ACKNOWLEDGED) pour la corrélation
 - [x] **Corrélation d'incidents** — `IncidentService` : fingerprint = type + source
   - nouvel incident → création + notification
   - récurrence → `occurrenceCount++`, `lastSeen`, escalade de sévérité (pas de spam)
@@ -37,7 +37,8 @@
 - [x] `TeamsNotifier` = plug-in `Notifier` — n'alerte QUE sur `CREATED` (anti-spam)
 - [x] **Intégration Jira** (`JiraNotifier`) — cycle de vie complet :
   - `CREATED` → crée un ticket (HIGH/CRITICAL only) + mémorise `jiraTicketKey`
-  - `RECURRED` → commente le ticket existant (idempotent, pas de doublon)
+  - `RECURRED` → commente le ticket existant, ou le crée si la sévérité a escaladé à HIGH/CRITICAL
+  - `RESOLVED` → commente le ticket existant
 - [x] Controller simplifié → `incidentService.handle(anomaly, log)`
 
 ### Sécurité
@@ -100,22 +101,23 @@ Log brut → parse → LogEntry (ES)
 - [x] Annotations `@Tag` + `@Operation` + `@Parameter` sur les 3 controllers
 - [x] Swagger UI accessible sur `/swagger-ui.html`
 
-### Tests unitaires — 46 tests, 0 failures (fait)
+### Tests unitaires — 60 tests (fait)
 - [x] `JsonLogParserTest` (6 tests) — parsing JSON, cas limites
 - [x] `ApacheLogParserTest` (6 tests) — parsing Apache, niveaux HTTP
 - [x] `SyslogParserTest` (7 tests) — parsing Syslog, sévérités 0-7
-- [x] `StackTraceAnomalyDetectorTest` (5 tests) — NPE, CausedBy, sévérités
+- [x] `StackTraceAnomalyDetectorTest` (8 tests) — NPE, CausedBy, *Error, casse libre, sévérités
 - [x] `KeywordAnomalyDetectorTest` (7 tests) — OOM, deadlock, timeout, troncature
-- [x] `ErrorRateAnomalyDetectorTest` (4 tests) — seuil min, taux 30%/50%+
+- [x] `ErrorRateAnomalyDetectorTest` (5 tests) — seuil min, taux 30%/50%+, isolation par source
 - [x] `SeverityTest` (4 tests) — enum max(), ordinal
-- [x] `IncidentServiceTest` (6 tests) — création, récurrence, ACK, resolve (Mockito)
+- [x] `IncidentServiceTest` (9 tests) — création, récurrence OPEN/ACK, ACK, resolve, gardes d'état (Mockito)
 - [x] `PlatformApplicationTests` — skip si pas d'ES (`@EnabledIfEnvironmentVariable`)
+- [x] `AuditLogIntegrationTest`, `NotificationRecordIntegrationTest`, `SampleDataParsingTest`
 
 ### Docker + CI/CD (fait)
 - [x] `backend/core/Dockerfile` — multi-stage (JDK 21 build → JRE 21 runtime)
 - [x] `frontend/dashboard/Dockerfile` — multi-stage (Node 20 build → nginx runtime)
 - [x] `frontend/dashboard/nginx.conf` — SPA fallback + proxy API → backend
-- [x] `infra/docker-compose.yml` — 3 services (Elasticsearch + backend + frontend) avec healthcheck
+- [x] `infra/docker-compose.yml` — 5 services (Elasticsearch + PostgreSQL + backend + frontend + Prometheus) avec healthcheck
 - [x] `.github/workflows/ci.yml` — pipeline CI : backend (compile+test) | frontend (build) | docker (validate)
 - [x] `application.yaml` externalisé via `${ENV_VAR:default}` pour Docker
 
@@ -134,6 +136,11 @@ Log brut → parse → LogEntry (ES)
 | PUT | `/api/incidents/{id}/resolve` | Résoudre un incident |
 | GET | `/api/incidents/stats` | Nombre d'incidents par statut |
 | POST | `/api/chatops` | Commande ChatOps (list, stats, ack, resolve) |
+| GET | `/api/audit?action=` | Journal d'audit (filtre par action) |
+| GET | `/api/audit/incident/{id}` | Historique d'audit d'un incident |
+| GET | `/api/notifications?channel=` | Historique des notifications |
+| GET | `/api/notifications/failed` | Notifications en échec |
+| GET | `/actuator/prometheus` | Métriques Prometheus |
 | GET | `/swagger-ui.html` | Documentation API interactive |
 
 ### Fichiers clés (mis à jour)
@@ -150,6 +157,7 @@ backend/core/src/main/java/valueit/observability/platform/
 │   ├── LogIngestionController.java       → ingestion + recherche
 │   ├── IncidentController.java           → CRUD incidents + stats
 │   ├── ChatOpsController.java            → commandes ChatOps
+│   ├── AuditController.java              → audit + notifications (ex-MetadataController fusionné)
 │   └── GlobalExceptionHandler.java       → gestion erreurs
 ├── parser/                               → LogParser, Json/Syslog/Apache
 ├── anomaly/                              → AnomalyDetector, détecteurs, SlidingWindowCounter
@@ -163,9 +171,11 @@ frontend/dashboard/src/
 ├── pages/
 │   ├── Dashboard.jsx                     → stats + pie chart
 │   ├── Logs.jsx                          → tableau paginé + recherche
-│   └── Incidents.jsx                     → cartes + actions
+│   ├── Incidents.jsx                     → cartes + actions
+│   ├── ChatOps.jsx                       → terminal interactif
+│   └── Audit.jsx                         → journal d'audit + notifications
 
-infra/docker-compose.yml                  → ES + backend + frontend
+infra/docker-compose.yml                  → ES + PostgreSQL + backend + frontend + Prometheus
 .github/workflows/ci.yml                  → CI pipeline
 ```
 
@@ -173,15 +183,21 @@ infra/docker-compose.yml                  → ES + backend + frontend
 - Variables d'env : `SPRING_ELASTICSEARCH_URIS`, `SPRING_ELASTICSEARCH_USERNAME`, `SPRING_ELASTICSEARCH_PASSWORD`, `SERVER_PORT`, `TEAMS_WEBHOOK_URL`, `JIRA_*`
 - Port backend : `8082` (configurable via `SERVER_PORT`)
 - Déploiement Docker : `docker compose -f infra/docker-compose.yml up --build`
-- Tests : `./mvnw test` (46 tests, pas besoin d'ES)
+- Tests : `./mvnw test` (60 tests, pas besoin d'ES)
 - Swagger UI : `http://localhost:8082/swagger-ui.html`
 
 ### Sprint 4 — Évaluation (en cours)
 - [x] `POST /api/logs/raw/bulk` — ingestion en lot (text/plain, 1 ligne = 1 log, ignore lignes vides/`#`, `?source=` force la source, retourne `BulkIngestResult`)
 - [x] Fix `SyslogParser` — préfixe `<PRI>` optionnel (RFC 3164 sans priorité) + inférence du niveau depuis le message
 - [x] `@JsonAlias("service")` sur `LogEntry.source` — les logs JSON avec champ `service` remplissent `source`
-- [x] `scripts/run_evaluation.ps1` / `.sh` — injection des samples, collecte incidents + métriques Prometheus, comparaison `ground_truth.csv` → précision/rappel/F1 dans `results/eval-<ts>/`
+- [x] `scripts/run_evaluation.ps1` / `.sh` — injection des samples, collecte incidents + métriques Prometheus, comparaison `ground_truth.csv` → précision/rappel/F1 dans `results/eval-<ts>/` ; `-Reset` purge les index ES, `-Runs N` répétitions avec moyenne ± écart-type
 - [ ] Exécuter la campagne d'évaluation complète (3 répétitions, moyenne ± écart-type)
+
+### Session 23 sept. 2026 — Revue de code + correctifs (fait)
+- [x] **P0** — `NotificationHub` persiste les `NotificationRecord` (succès + échec) et incrémente les compteurs `PlatformMetrics` ; `IncidentService` incrémente `incidentCreated`/`incidentResolved` ; niveau `WARN` normalisé (parsers ↔ filtre frontend) ; fix binding `datetime-local` → ISO dans `searchLogs`
+- [x] **P1** — corrélation des récurrences sur incidents OPEN **et** ACKNOWLEDGED ; ticket Jira créé sur `RECURRED` si escalade HIGH/CRITICAL ; `StackTraceAnomalyDetector` insensible à la casse + types `*Error` ; `ErrorRateAnomalyDetector` fenêtre glissante **par source** ; gardes d'état sur `acknowledge()`/`resolve()` (400 via `GlobalExceptionHandler`, message propre en ChatOps)
+- [x] **P2** — `run_evaluation.ps1` : `-Reset` (purge ES) + `-Runs N` (résultats par run + agrégat moyenne/écart-type) ; `detection.csv` enrichi des types d'incidents ; doc `plan-experiences.md` corrigée (endpoint `/api/logs/raw/bulk`)
+- [x] **P3** — `MetadataController` fusionné dans `AuditController` puis supprimé ; `@Order` sur les parsers (JSON → Apache → Syslog) ; timeouts `RestClient` (5s/10s) + payloads JSON construits via Jackson dans les notifiers ; README/progress.md resynchronisés
 
 ### Prochaines étapes
 - [ ] Tester le frontend + backend end-to-end

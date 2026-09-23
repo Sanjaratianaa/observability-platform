@@ -3,6 +3,7 @@ package valueit.observability.platform.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,6 +37,12 @@ public class AuditController {
         return auditLogRepository.findTop20ByOrderByCreatedAtDesc();
     }
 
+    @GetMapping("/audit/incident/{incidentId}")
+    @Operation(summary = "Historique d'audit d'un incident")
+    public List<AuditLog> auditForIncident(@PathVariable String incidentId) {
+        return auditLogRepository.findByEntityTypeAndEntityId("INCIDENT", incidentId);
+    }
+
     @GetMapping("/notifications")
     @Operation(summary = "Derniers enregistrements de notifications envoyées")
     public List<NotificationRecord> recentNotifications(@RequestParam(required = false) String channel) {
@@ -43,5 +50,11 @@ public class AuditController {
             return notificationRecordRepository.findByChannel(channel);
         }
         return notificationRecordRepository.findTop20ByOrderBySentAtDesc();
+    }
+
+    @GetMapping("/notifications/failed")
+    @Operation(summary = "Notifications en échec")
+    public List<NotificationRecord> failedNotifications() {
+        return notificationRecordRepository.findBySuccessFalse();
     }
 }

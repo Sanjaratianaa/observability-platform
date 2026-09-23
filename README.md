@@ -67,7 +67,7 @@
 | Couche | Technologie |
 |--------|-------------|
 | **Backend** | Java 21, Spring Boot 4.1.0, Maven |
-| **Stockage logs/incidents** | Elasticsearch 8.17 |
+| **Stockage logs/incidents** | Elasticsearch 9.0.0 |
 | **Métadonnées (audit, notifications)** | JPA — H2 (dev) / PostgreSQL 16 (Docker) |
 | **Frontend** | React 19, Vite 8, Tailwind CSS 4, Recharts, Lucide |
 | **Documentation API** | springdoc-openapi (Swagger UI) |
@@ -213,11 +213,13 @@ Log brut (texte) ──→ LogParsingService
 
 ## Frontend Dashboard
 
-SPA React avec 3 pages :
+SPA React avec 5 pages :
 
-- **Dashboard** — KPI cards (total logs, incidents, ouverts, résolus) + pie chart de répartition
+- **Dashboard** — KPI cards (total logs, incidents, ouverts, résolus) + graphiques de répartition
 - **Logs** — Tableau paginé avec recherche temporelle et filtre par niveau
 - **Incidents** — Cartes avec badges sévérité/statut, actions ACK et Résoudre, filtres
+- **ChatOps** — Terminal interactif pour les commandes `list`, `stats`, `ack`, `resolve`
+- **Audit** — Journal d'audit et historique des notifications (filtres par action/canal)
 
 ---
 
@@ -237,7 +239,7 @@ Interface conversationnelle via `POST /api/chatops` :
 
 ## Tests
 
-46+ tests unitaires (pas besoin d'Elasticsearch) :
+60 tests unitaires (pas besoin d'Elasticsearch) :
 
 ```bash
 cd backend/core
@@ -249,13 +251,14 @@ cd backend/core
 | `JsonLogParserTest` | 6 — parsing JSON, cas limites |
 | `ApacheLogParserTest` | 6 — parsing Apache, niveaux HTTP |
 | `SyslogParserTest` | 7 — parsing Syslog, sévérités 0-7 |
-| `StackTraceAnomalyDetectorTest` | 5 — NPE, CausedBy, sévérités |
+| `StackTraceAnomalyDetectorTest` | 8 — NPE, CausedBy, *Error, casse libre, sévérités |
 | `KeywordAnomalyDetectorTest` | 7 — OOM, deadlock, timeout |
-| `ErrorRateAnomalyDetectorTest` | 4 — seuil, taux 30%/50%+ |
+| `ErrorRateAnomalyDetectorTest` | 5 — seuil, taux 30%/50%+, isolation par source |
 | `SeverityTest` | 4 — enum max(), ordinal |
-| `IncidentServiceTest` | 6 — création, récurrence, ACK, resolve |
+| `IncidentServiceTest` | 9 — création, récurrence (OPEN/ACK), ACK, resolve, gardes d'état |
 | `AuditLogIntegrationTest` | Tests d'intégration audit |
 | `NotificationRecordIntegrationTest` | Tests d'intégration notifications |
+| `PlatformApplicationTests`, `SampleDataParsingTest` | Contexte Spring, parsing des fichiers sample |
 
 ---
 
@@ -310,14 +313,14 @@ observability-platform/
 │   │   └── repository/                    # Spring Data repositories
 │   ├── src/main/resources/
 │   │   └── application.yaml               # Configuration externalisée
-│   ├── src/test/                           # 46+ tests unitaires
+│   ├── src/test/                           # 60 tests unitaires
 │   ├── Dockerfile                          # Multi-stage (JDK build → JRE runtime)
 │   └── pom.xml
 ├── frontend/dashboard/                     # Frontend React
 │   ├── src/
 │   │   ├── App.jsx                        # SPA + sidebar + router
 │   │   ├── api.js                         # Client API
-│   │   └── pages/                         # Dashboard, Logs, Incidents
+│   │   └── pages/                         # Dashboard, Logs, Incidents, ChatOps, Audit
 │   ├── Dockerfile                          # Multi-stage (Node build → nginx)
 │   ├── nginx.conf                          # SPA fallback + API proxy
 │   └── package.json

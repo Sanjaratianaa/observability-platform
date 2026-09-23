@@ -1,5 +1,6 @@
 package valueit.observability.platform.parser;
 
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import valueit.observability.platform.model.LogEntry;
 import tools.jackson.databind.ObjectMapper;
@@ -8,6 +9,7 @@ import tools.jackson.core.JacksonException;
 import java.time.Instant;
 
 @Component
+@Order(1)
 public class JsonLogParser implements LogParser{
     private final ObjectMapper objectMapper;
 

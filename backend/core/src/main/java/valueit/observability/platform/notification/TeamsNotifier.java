@@ -3,11 +3,16 @@ package valueit.observability.platform.notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.incident.IncidentEvent;
 import valueit.observability.platform.incident.Severity;
+
+import java.time.Duration;
 
 @Component
 public class TeamsNotifier implements Notifier {
@@ -16,10 +21,16 @@ public class TeamsNotifier implements Notifier {
 
     private final RestClient restClient;
     private final String webhookUrl;
+    private final ObjectMapper objectMapper;
 
-    public TeamsNotifier(@Value("${notification.teams.webhook-url}") String webhookUrl) {
+    public TeamsNotifier(@Value("${notification.teams.webhook-url}") String webhookUrl,
+                         ObjectMapper objectMapper) {
         this.webhookUrl = webhookUrl;
-        this.restClient = RestClient.create();
+        this.objectMapper = objectMapper;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(10));
+        this.restClient = RestClient.builder().requestFactory(factory).build();
     }
 
     @Override
@@ -39,30 +50,16 @@ public class TeamsNotifier implements Notifier {
             return;
         }
 
-        String payload = """
-                {
-                  "@type": "MessageCard",
-                  "themeColor": "%s",
-                  "title": "🚨 %s",
-                  "text": "%s",
-                  "sections": [{
-                    "facts": [
-                      {"name": "Sévérité", "value": "%s"},
-                      {"name": "Source", "value": "%s"},
-                      {"name": "Occurrences", "value": "%d"},
-                      {"name": "Première vue", "value": "%s"}
-                    ]
-                  }]
-                }
-                """.formatted(
-                severityToColor(incident.getSeverity()),
-                incident.getType(),
-                incident.getDescription().replace("\"", "'"),
-                incident.getSeverity(),
-                incident.getSource(),
-                incident.getOccurrenceCount(),
-                String.valueOf(incident.getFirstSeen())
-        );
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("@type", "MessageCard");
+        payload.put("themeColor", severityToColor(incident.getSeverity()));
+        payload.put("title", "🚨 " + incident.getType());
+        payload.put("text", incident.getDescription());
+        var facts = payload.putArray("sections").addObject().putArray("facts");
+        facts.addObject().put("name", "Sévérité").put("value", String.valueOf(incident.getSeverity()));
+        facts.addObject().put("name", "Source").put("value", incident.getSource());
+        facts.addObject().put("name", "Occurrences").put("value", String.valueOf(incident.getOccurrenceCount()));
+        facts.addObject().put("name", "Première vue").put("value", String.valueOf(incident.getFirstSeen()));
 
         try {
             restClient.post()

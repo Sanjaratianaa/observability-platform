@@ -3,6 +3,7 @@ package valueit.observability.platform.notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import valueit.observability.platform.incident.Incident;
@@ -10,9 +11,11 @@ import valueit.observability.platform.incident.IncidentEvent;
 import valueit.observability.platform.incident.Severity;
 import valueit.observability.platform.repository.IncidentRepository;
 
+import java.time.Duration;
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class JiraNotifier implements Notifier {
@@ -40,7 +43,10 @@ public class JiraNotifier implements Notifier {
         this.projectKey = projectKey;
         this.incidentRepository = incidentRepository;
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.create();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(10));
+        this.restClient = RestClient.builder().requestFactory(factory).build();
     }
 
     @Override
@@ -76,9 +82,8 @@ public class JiraNotifier implements Notifier {
     }
 
     private void addComment(Incident incident, String message) {
-        String body = """
-            { "body": "%s" }
-            """.formatted(message.replace("\"", "'"));
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("body", message);
 
         try {
             restClient.post()
@@ -98,20 +103,13 @@ public class JiraNotifier implements Notifier {
         String summary = "[" + incident.getSeverity() + "] "
                 + incident.getType() + " sur " + incident.getSource();
 
-        String payload = """
-                {
-                  "fields": {
-                    "project": { "key": "%s" },
-                    "summary": "%s",
-                    "description": "%s",
-                    "issuetype": { "name": "Bug" }
-                  }
-                }
-                """.formatted(
-                projectKey,
-                summary.replace("\"", "'"),
-                incident.getDescription().replace("\"", "'")
-        );
+        ObjectNode fields = objectMapper.createObjectNode();
+        fields.putObject("project").put("key", projectKey);
+        fields.put("summary", summary);
+        fields.put("description", incident.getDescription());
+        fields.putObject("issuetype").put("name", "Bug");
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.set("fields", fields);
 
         try {
             String response = restClient.post()
