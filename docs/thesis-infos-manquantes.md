@@ -5,6 +5,61 @@ Analyse comparative entre `MémoireITU-v3r3` et l'application réellement implé
 
 ---
 
+## 📌 ÉTAT D'AVANCEMENT (25 sept. 2026)
+
+### ✅ FAIT — ne pas refaire
+
+- **Légendes des 10 figures** placées dans le .docx (§5.3.1, §6.1, §6.2, §7.2.3, §7.2.4, §8.4, §9)
+- **§5.1.1 corrigé** — déduplication par fingerprint ES (texte intégré, voir correction n°2)
+- **§1.2 reformulé** — la détection est implémentée par le projet (simule les outils internes)
+- **§7.2.3 réécrit** — texte avant la figure modèle de données (ES + PostgreSQL + dédup)
+- **Figures dessinées et insérées** :
+  - Fig 3 — architecture interne microservices (§6.1)
+  - Fig 4 — architecture de déploiement, 8 conteneurs (§6.2) ✅ validée
+  - Fig 5 — modèle de données ER (§7.2.3, mermaid erDiagram)
+  - Fig 6 — pipeline de traitement d'un log (§7.2.4, draw.io) ✅ validée
+  - Fig 7 — diagramme d'états OPEN→ACK→RESOLVED (§7.2.4, mermaid `stateDiagram-v2`, `direction LR`)
+  - Fig 8 — séquence déduplication (§7.2.4, mermaid `sequenceDiagram`, **insérée pivotée 90°** — trop large pour le portrait)
+
+### ⬜ RESTE À FAIRE (par priorité)
+
+**Nécessite l'app lancée** (`docker compose up` dans `infra/`) :
+
+1. **Fig 1 + Fig 2** (§5.3.1) — 2 captures écran : page Dashboard (KPI + graphiques) et
+   page Incidents (badges, boutons ack/resolve). Frontend : `http://localhost:8090`.
+2. **Fig 10** (§9) — exécuter `scripts/run_evaluation.ps1` (+ `ground_truth.csv`)
+   → précision/rappel/F1 par détecteur. **Le plus important pour la note.**
+3. **Fig 9** (§8.4) — écrire un petit script de charge (N requêtes `POST /api/logs/bulk`,
+   mesurer débit + temps de réponse) → tableau/graphique des résultats.
+
+**Texte à insérer dans le .docx** (contenu prêt dans ce fichier) :
+
+4. **§5.3.2** — tableau des endpoints REST (donné dans « Prompt 9 » ci-dessous,
+   3 tableaux par service).
+5. **§5.3.1** — décrire le dashboard React : 5 pages (Dashboard, Logs, Incidents,
+   ChatOps, Audit), React 19 + nginx reverse proxy.
+6. **§7.1.2** — stack réelle : Spring Boot 4.1.0, Java 21, ES 9.0.0, PostgreSQL 16,
+   React 19, Prometheus, Grafana, Maven multi-module.
+7. **§7.2.x** — ajouter : méta-observabilité (`/actuator/prometheus` → Prometheus →
+   Grafana), audit JPA, Swagger par service, `GlobalExceptionHandler`, CORS.
+8. **§8** — tableau des 65 tests par module + CI GitHub Actions (3 jobs).
+9. **§9.3** — perspectives : auth sur les API, file d'attente/rate limiting,
+   retry/circuit breaker, Kubernetes, Kibana optionnel.
+10. **Glossaire** — ajouter *fingerprint*, *Prometheus*, *Grafana* (définitions données
+    en conversation ; *ChatOps* à vérifier s'il existe déjà).
+11. **Résumé/Abstract** — mentionner : 3 microservices + `common`, dashboard React,
+    déduplication par fingerprint, résultats chiffrés (une fois Fig 10 obtenue).
+12. **Annexe** — extrait `docker-compose.yml`, exemple payload `AnomalyReport`,
+    exemples de logs par format.
+13. **Vérification finale** — correction n°1 ci-dessous : s'assurer que le texte du
+    mémoire mentionne ports réels, `/internal/anomalies`, module `common`.
+
+> **Note** : les sections « Prompt 1-9 » plus bas servent de **référence** (contenu
+> exact des figures + textes). Ne pas supprimer — nécessaires pour rédiger les
+> paragraphes autour des figures déjà insérées.
+
+---
+
 ## ⚠️ Corrections importantes (risque en soutenance)
 
 ### 1. « Architecture microservices » → ✅ **résolu par la refonte (23 sept. 2026)**
@@ -33,7 +88,7 @@ maintenant conforme à la réalité :
 interne `/internal/anomalies`, module `common`, découpage des responsabilités)
 correspondent à cette implémentation.
 
-### 2. Déduplication : ce n'est pas une recherche dans Jira
+### 2. Déduplication : ce n'est pas une recherche dans Jira → ✅ **corrigé dans le mémoire**
 
 Le mémoire dit (§5.1.1, §7.2.4) que la plateforme « vérifie si un ticket correspondant
 existe déjà dans Jira ». En réalité :
@@ -917,3 +972,74 @@ chaque figure doit démontrer quelque chose qu'un texte ne peut pas montrer.
   dépendent de common, chatops est autonome ») suffit.
 - **Captures de toutes les pages du dashboard** — 2 captures suffisent ;
   au-delà c'est du remplissage.
+
+### Prompt 9 — Placement des figures dans le sommaire réel du mémoire
+
+Le mémoire ne contient actuellement que **2 figures** (liste des figures, p. iv) :
+Figure 1 « Architecture logicielle et organisation interne des microservices »
+(§6.1, p. 22) et Figure 2 « Architecture technique de la plateforme » (§6.2,
+p. 23). Voici quoi mettre dans chaque section et où placer les nouvelles figures.
+
+#### Figures déjà prévues — à remplir
+
+- **§6.1 Architecture logicielle** → Figure 1 : architecture interne des
+  microservices — modules Maven, classes principales, endpoints, dépendances
+  (`monitoring → common`, `incident → common`, `chatops autonome`).
+  Contenu prêt : **Prompt 3**.
+- **§6.2 Architecture technique** → Figure 2 : architecture de déploiement —
+  8 conteneurs, ports, flux HTTP/JDBC/HTTPS, scraping Prometheus.
+  Contenu prêt : **Prompts 1 + 7 fusionnés**.
+
+#### Figures à ajouter — par section
+
+- **§5.3.1 IHM** → 2 captures d'écran : page Dashboard (KPI + graphiques) et
+  page Incidents (badges sévérité/statut, boutons ack/resolve). La section
+  existe mais le dashboard n'y est pas décrit — à rédiger aussi.
+- **§7.2.3 Modélisation des données** → figure modèle de données : 2 documents
+  ES + 2 tables JPA + liens logiques. Contenu prêt : **Prompt 6**.
+- **§7.2.4 Réalisation des cas d'utilisation** → 3 figures :
+  1. pipeline de traitement d'un log (**Prompt 2**) — couvre le cas
+     « détection et création automatique » (§5.1.1) ;
+  2. diagramme d'états OPEN → ACKNOWLEDGED → RESOLVED (**Prompt 4**) ;
+  3. diagramme de séquence corrélation/déduplication (**Prompt 5**) —
+     à placer ici ou en §5.1.1 pour corriger l'affirmation « recherche Jira ».
+- **§7.2.5 Composants et leur déploiement** → optionnel : graphe `depends_on`
+  ou extrait annoté du `docker-compose.yml`. Une figure suffit si §6.2 a déjà
+  le schéma complet — sinon redondant.
+- **§8.1/8.2 Tests** → **tableau** (pas figure) : les 65 tests par module et
+  suite. Contenu prêt : section §8 du présent document.
+- **§8.4 Tests de charge** → tableau/graphique de résultats — ⚠️ à générer
+  (script de charge à écrire, ex. N requêtes bulk + mesure du débit).
+- **§9 Évaluation** (ou §8.3) → tableau/graphique précision/rappel/F1 —
+  ⚠️ à générer via `scripts/run_evaluation.ps1` + `ground_truth.csv`.
+
+#### Contenu textuel à corriger/ajouter (sans figure)
+
+- **§5.1.1** — remplacer « recherche dans Jira » par déduplication par
+  fingerprint dans Elasticsearch (voir correction n°2 de ce document).
+- **§5.3.1** — décrire le dashboard React (5 pages : Dashboard, Logs,
+  Incidents, ChatOps, Audit).
+- **§5.2.x** — fiabilité : isolation de panne (ingestion survit à
+  incident-service down), timeouts 5 s/10 s, gardes d'état 400.
+- **§7.1.2** — stack réelle : Spring Boot 4.1.0, Java 21, ES 9.0.0,
+  PostgreSQL 16, React 19, Prometheus + Grafana.
+- **§7.2.x** — ajouter : méta-observabilité (Actuator → Prometheus → Grafana),
+  audit JPA (`audit_logs`, `notification_records`), Swagger par service,
+  `GlobalExceptionHandler`, CORS.
+- **§8** — CI GitHub Actions (3 jobs) + 65 tests.
+- **§9.3** — perspectives : auth sur les API, file d'attente/rate limiting,
+  retry/circuit breaker, Kubernetes, Kibana si déployé.
+
+#### Récapitulatif — nombre de figures final
+
+| Section | Figure | Statut |
+|---|---|---|
+| §6.1 | Architecture interne microservices | existante, à remplir (Prompt 3) |
+| §6.2 | Architecture de déploiement | existante, à remplir (Prompts 1+7) |
+| §5.3.1 | 2 captures dashboard | à faire (captures) |
+| §7.2.3 | Modèle de données | à faire (Prompt 6) |
+| §7.2.4 | Pipeline log + états + séquence dédup | à faire (Prompts 2, 4, 5) |
+| §8.4 | Résultats charge | à générer |
+| §9 | Résultats évaluation P/R/F1 | à générer |
+
+Total : **~8 figures + 2 tableaux** — cohérent pour un M2 sans surcharge.
