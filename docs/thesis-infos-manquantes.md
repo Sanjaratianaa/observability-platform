@@ -5,54 +5,62 @@ Analyse comparative entre `MémoireITU-v3r3` et l'application réellement implé
 
 ---
 
-## 📌 ÉTAT D'AVANCEMENT (25 sept. 2026)
+## 📌 ÉTAT D'AVANCEMENT (25 sept. 2026 — docx vérifié après mise à jour)
 
-### ✅ FAIT — ne pas refaire
+### ✅ FAIT — vérifié dans le .docx
 
-- **Légendes des 10 figures** placées dans le .docx (§5.3.1, §6.1, §6.2, §7.2.3, §7.2.4, §8.4, §9)
-- **§5.1.1 corrigé** — déduplication par fingerprint ES (texte intégré, voir correction n°2)
-- **§1.2 reformulé** — la détection est implémentée par le projet (simule les outils internes)
-- **§7.2.3 réécrit** — texte avant la figure modèle de données (ES + PostgreSQL + dédup)
-- **Figures dessinées et insérées** :
-  - Fig 3 — architecture interne microservices (§6.1)
-  - Fig 4 — architecture de déploiement, 8 conteneurs (§6.2) ✅ validée
-  - Fig 5 — modèle de données ER (§7.2.3, mermaid erDiagram)
-  - Fig 6 — pipeline de traitement d'un log (§7.2.4, draw.io) ✅ validée
-  - Fig 7 — diagramme d'états OPEN→ACK→RESOLVED (§7.2.4, mermaid `stateDiagram-v2`, `direction LR`)
-  - Fig 8 — séquence déduplication (§7.2.4, mermaid `sequenceDiagram`, **insérée pivotée 90°** — trop large pour le portrait)
+- **Légendes des 10 figures** placées
+- **§5.1.1 corrigé** — déduplication par fingerprint ES
+- **§1.2 reformulé** — détection reproduite par le module monitoring (outils internes en prod)
+- **§7.2.3 réécrit** — ES + PostgreSQL + dédup
+- **Glossaire complet** — fingerprint, Grafana, Prometheus, ChatOps, CI/CD, webhook, timeout…
+- **§5.3** — mentionne les 5 vues (Dashboard, Logs, Incidents, ChatOps, Audit)
+- **Figures dessinées et insérées** : Fig 3 (§6.1), Fig 4 (§6.2, validée), Fig 5 (§7.2.3),
+  Fig 6 (§7.2.4, validée), Fig 7 (§7.2.4, états), Fig 8 (§7.2.4, pivotée 90°)
 
-### ⬜ RESTE À FAIRE (par priorité)
+### 🔴 INCOHÉRENCES à corriger (le texte contredit le mécanisme réel)
+
+1. **§7.2.4 « Détection et création automatique d'un ticket »** — dit encore
+   « vérifie si un ticket correspondant existe déjà **dans Jira** » → reprendre le texte
+   fingerprint ES de §5.1.1.
+2. **§5.3.2** — « Jira : utilisé pour **rechercher les tickets existants** » → Jira ne sert
+   qu'à créer/commenter ; la recherche de doublons est dans Elasticsearch.
+3. **§2.3** — « L'API REST de Jira est utilisée pour… **vérifier si un incident similaire
+   a déjà été signalé** » → même correction (dédup dans ES, Jira = création/commentaire).
+
+### 🐛 Bugs de texte
+
+4. **Résumé FR tronqué** — « …notifications instantanées sur Microsoft sans ouvrir les
+   outils de monitoring existants » : il manque « **Teams**, et une interface
+   conversationnelle… » (la version EN est complète, pas la FR).
+5. **§5.1.1** — typo : « monitoring-service **ka** transmet » → « la ».
+
+### ⬜ RESTE À FAIRE
 
 **Nécessite l'app lancée** (`docker compose up` dans `infra/`) :
 
-1. **Fig 1 + Fig 2** (§5.3.1) — 2 captures écran : page Dashboard (KPI + graphiques) et
-   page Incidents (badges, boutons ack/resolve). Frontend : `http://localhost:8090`.
-2. **Fig 10** (§9) — exécuter `scripts/run_evaluation.ps1` (+ `ground_truth.csv`)
-   → précision/rappel/F1 par détecteur. **Le plus important pour la note.**
-3. **Fig 9** (§8.4) — écrire un petit script de charge (N requêtes `POST /api/logs/bulk`,
-   mesurer débit + temps de réponse) → tableau/graphique des résultats.
+6. **Fig 1 + Fig 2** (§5.3.1) — captures Dashboard + Incidents (`http://localhost:8090`).
+7. **Fig 10** (§9) — `scripts/run_evaluation.ps1` → P/R/F1 par détecteur. **Priorité max.**
+8. **Fig 9** (§8.4) — script de charge (N × `POST /api/logs/bulk`) → débit + temps de réponse.
 
-**Texte à insérer dans le .docx** (contenu prêt dans ce fichier) :
+**Texte à compléter dans le .docx** :
 
-4. **§5.3.2** — tableau des endpoints REST (donné dans « Prompt 9 » ci-dessous,
-   3 tableaux par service).
-5. **§5.3.1** — décrire le dashboard React : 5 pages (Dashboard, Logs, Incidents,
-   ChatOps, Audit), React 19 + nginx reverse proxy.
-6. **§7.1.2** — stack réelle : Spring Boot 4.1.0, Java 21, ES 9.0.0, PostgreSQL 16,
-   React 19, Prometheus, Grafana, Maven multi-module.
-7. **§7.2.x** — ajouter : méta-observabilité (`/actuator/prometheus` → Prometheus →
-   Grafana), audit JPA, Swagger par service, `GlobalExceptionHandler`, CORS.
-8. **§8** — tableau des 65 tests par module + CI GitHub Actions (3 jobs).
-9. **§9.3** — perspectives : auth sur les API, file d'attente/rate limiting,
-   retry/circuit breaker, Kubernetes, Kibana optionnel.
-10. **Glossaire** — ajouter *fingerprint*, *Prometheus*, *Grafana* (définitions données
-    en conversation ; *ChatOps* à vérifier s'il existe déjà).
-11. **Résumé/Abstract** — mentionner : 3 microservices + `common`, dashboard React,
-    déduplication par fingerprint, résultats chiffrés (une fois Fig 10 obtenue).
-12. **Annexe** — extrait `docker-compose.yml`, exemple payload `AnomalyReport`,
-    exemples de logs par format.
-13. **Vérification finale** — correction n°1 ci-dessous : s'assurer que le texte du
-    mémoire mentionne ports réels, `/internal/anomalies`, module `common`.
+9. **§5.3.1** — le texte dit encore « l'interface principale est le ChatOps » alors que
+   §5.3 cite les 5 vues → décrire le dashboard React (React 19 + nginx proxy).
+10. **§5.3.2** — ajouter le tableau des endpoints REST (contenu dans « Prompt 9 »).
+11. **§7.1.2** — stack réelle : Spring Boot 4.1.0, Java 21, ES 9.0.0, PostgreSQL 16,
+    React 19, Prometheus, Grafana, Maven multi-module.
+12. **§6.2** — le texte ne cite que « quatre éléments » : ajouter frontend/nginx,
+    PostgreSQL, Prometheus, Grafana (cohérent avec la Fig 4 à 8 conteneurs).
+13. **§7.2.x** — méta-observabilité (`/actuator/prometheus` → Grafana), audit JPA,
+    Swagger par service, `GlobalExceptionHandler`, CORS.
+14. **§8** — tableau des 65 tests par module + CI GitHub Actions ; §8.4 est encore
+    au futur (« sont prévus ») → passer au résultat quand la charge est faite.
+15. **§9.3** — ajouter : auth sur les API, file d'attente/rate limiting, retry/circuit
+    breaker, Kubernetes, Kibana optionnel.
+16. **Résumé/Abstract** — après fix n°4 : mentionner dashboard + fingerprint + chiffres
+    d'évaluation (quand dispo).
+17. **Annexe** — extrait `docker-compose.yml`, payload `AnomalyReport`, exemples de logs.
 
 > **Note** : les sections « Prompt 1-9 » plus bas servent de **référence** (contenu
 > exact des figures + textes). Ne pas supprimer — nécessaires pour rédiger les
