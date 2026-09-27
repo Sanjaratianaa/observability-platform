@@ -69,9 +69,9 @@ public class LogIngestionController {
             @Parameter(description = "Source forcée pour tous les logs du lot") @RequestParam(required = false) String source,
             @RequestBody String body) {
         int received = 0;
-        int ingested = 0;
         int parseErrors = 0;
         int anomaliesDetected = 0;
+        List<LogEntry> parsedEntries = new java.util.ArrayList<>();
 
         for (String line : body.split("\\R")) {
             String raw = line.trim();
@@ -84,23 +84,30 @@ public class LogIngestionController {
                 if (source != null && !source.isBlank()) {
                     entry.setSource(source);
                 }
-                LogEntry saved = logEntryRepository.save(entry);
-                ingested++;
-                metrics.logIngested();
-
-                List<Anomaly> detected = anomalyDetectionService.analyze(saved);
-                anomaliesDetected += detected.size();
-                detected.forEach(anomaly -> {
-                    metrics.anomalyDetected();
-                    incidentClient.report(toReport(anomaly, saved));
-                });
+                parsedEntries.add(entry);
             } catch (LogParserException e) {
                 parseErrors++;
                 metrics.logParseError();
             }
         }
 
-        return ResponseEntity.ok(new BulkIngestResult(received, ingested, parseErrors, anomaliesDetected));
+        List<LogEntry> savedEntries = StreamSupport
+                .stream(logEntryRepository.saveAll(parsedEntries).spliterator(), false)
+                .toList();
+        List<AnomalyReport> reports = new java.util.ArrayList<>();
+        for (LogEntry saved : savedEntries) {
+            metrics.logIngested();
+            List<Anomaly> detected = anomalyDetectionService.analyze(saved);
+            anomaliesDetected += detected.size();
+            detected.forEach(anomaly -> {
+                metrics.anomalyDetected();
+                reports.add(toReport(anomaly, saved));
+            });
+        }
+        incidentClient.reportBatch(reports);
+
+        return ResponseEntity.ok(new BulkIngestResult(
+                received, savedEntries.size(), parseErrors, anomaliesDetected));
     }
 
     public record BulkIngestResult(int received, int ingested, int parseErrors, int anomaliesDetected) {}

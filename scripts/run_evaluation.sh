@@ -8,9 +8,10 @@ set -euo pipefail
 # Usage:
 #   bash scripts/run_evaluation.sh                 # backend deja demarre
 #   bash scripts/run_evaluation.sh --start-stack   # demarre docker compose d'abord
-#   BASE_URL=http://localhost:8082 bash scripts/run_evaluation.sh
+#   MONITORING_URL=http://localhost:8081 INCIDENT_URL=http://localhost:8082 bash scripts/run_evaluation.sh
 
-BASE_URL="${BASE_URL:-http://localhost:8082}"
+MONITORING_URL="${MONITORING_URL:-http://localhost:8081}"
+INCIDENT_URL="${INCIDENT_URL:-http://localhost:8082}"
 START_STACK="${1:-}"
 HEALTH_TIMEOUT=90
 
@@ -27,25 +28,29 @@ if [ "$START_STACK" = "--start-stack" ]; then
 fi
 
 # --- 2) Attente du backend ----------------------------------------------------
-echo "==> Attente du backend sur $BASE_URL (timeout ${HEALTH_TIMEOUT}s)"
-deadline=$((SECONDS + HEALTH_TIMEOUT))
-healthy=0
-while [ $SECONDS -lt $deadline ]; do
-    if curl -sf "$BASE_URL/actuator/health" | grep -q '"UP"'; then healthy=1; break; fi
-    sleep 3
+for svc_label_url in "monitoring:$MONITORING_URL" "incident:$INCIDENT_URL"; do
+    svc_label="${svc_label_url%%:*}"
+    svc_url="${svc_label_url#*:}"
+    echo "==> Attente de $svc_label-service sur $svc_url (timeout ${HEALTH_TIMEOUT}s)"
+    deadline=$((SECONDS + HEALTH_TIMEOUT))
+    healthy=0
+    while [ $SECONDS -lt $deadline ]; do
+        if curl -sf "$svc_url/actuator/health" | grep -q '"UP"'; then healthy=1; break; fi
+        sleep 3
+    done
+    [ "$healthy" = "1" ] || { echo "$svc_label-service non disponible sur $svc_url"; exit 1; }
+    echo "    $svc_label-service UP"
 done
-[ "$healthy" = "1" ] || { echo "Backend non disponible sur $BASE_URL"; exit 1; }
-echo "    Backend UP"
 
 # --- 3) Snapshot des incidents existants --------------------------------------
-before_ids=$(curl -sf "$BASE_URL/api/incidents" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 || true)
+before_ids=$(curl -sf "$INCIDENT_URL/api/incidents" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 || true)
 
 # --- 4) Injection des fichiers de logs ----------------------------------------
 echo "file,received,ingested,parse_errors,anomalies" > "$RESULTS_DIR/ingestion.csv"
 for file in "$SAMPLE_DIR"/*.log; do
     source_name="$(basename "$file")"
     echo "==> Injection $source_name"
-    result=$(curl -sf -X POST "$BASE_URL/api/logs/raw/bulk?source=$source_name" \
+    result=$(curl -sf -X POST "$MONITORING_URL/api/logs/raw/bulk?source=$source_name" \
         -H 'Content-Type: text/plain; charset=utf-8' --data-binary @"$file") || {
         echo "    Echec injection $source_name"
         echo "$source_name,0,0,0,0" >> "$RESULTS_DIR/ingestion.csv"
@@ -60,8 +65,9 @@ done
 sleep 5
 
 # --- 5) Collecte incidents + metriques ----------------------------------------
-curl -sf "$BASE_URL/api/incidents" > "$RESULTS_DIR/incidents.json"
-curl -sf "$BASE_URL/actuator/prometheus" > "$RESULTS_DIR/prometheus.txt" || true
+curl -sf "$INCIDENT_URL/api/incidents" > "$RESULTS_DIR/incidents.json"
+curl -sf "$MONITORING_URL/actuator/prometheus" > "$RESULTS_DIR/prometheus-monitoring.txt" || true
+curl -sf "$INCIDENT_URL/actuator/prometheus" > "$RESULTS_DIR/prometheus-incident.txt" || true
 
 # Nouveaux incidents = ceux dont l'id n'etait pas dans le snapshot
 new_sources=$(grep -o '"source":"[^"]*"' "$RESULTS_DIR/incidents.json" | cut -d'"' -f4 | sort -u || true)
@@ -96,7 +102,7 @@ recall=$(awk -v t="$tp" -v f="$fn" 'BEGIN{print (t+f)>0? t/(t+f) : 0}')
 f1=$(awk -v p="$precision" -v r="$recall" 'BEGIN{print (p+r)>0? 2*p*r/(p+r) : 0}')
 
 cat > "$RESULTS_DIR/summary.json" <<EOF
-{"timestamp":"$(date -Iseconds)","base_url":"$BASE_URL","TP":$tp,"FP":$fp,"FN":$fn,"precision":$precision,"recall":$recall,"f1":$f1}
+{"timestamp":"$(date -Iseconds)","monitoring_url":"$MONITORING_URL","incident_url":"$INCIDENT_URL","TP":$tp,"FP":$fp,"FN":$fn,"precision":$precision,"recall":$recall,"f1":$f1}
 EOF
 
 echo ""

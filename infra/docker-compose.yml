@@ -72,6 +72,11 @@ services:
       - JPA_DIALECT=org.hibernate.dialect.PostgreSQLDialect
       - H2_CONSOLE_ENABLED=false
       - SERVER_PORT=8082
+      - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-https://placeholder.webhook.office.com/not-configured}
+      - JIRA_BASE_URL=${JIRA_BASE_URL:-https://not-configured}
+      - JIRA_EMAIL=${JIRA_EMAIL:-not-configured}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN:-not-configured}
+      - JIRA_PROJECT_KEY=${JIRA_PROJECT_KEY:-OBS}
     ports:
       - "8082:8082"
     depends_on:

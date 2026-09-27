@@ -114,6 +114,17 @@ docker compose -f infra/docker-compose.yml up --build
 | Swagger UI | http://localhost:8081/swagger-ui.html (par service) |
 | Elasticsearch | http://localhost:9200 |
 | Prometheus | http://localhost:9091 |
+| Grafana | http://localhost:3000 (admin/admin) |
+
+#### Activer les notifications Jira/Teams
+
+Copier `infra/.env.example` → `infra/.env` et renseigner les identifiants :
+
+```bash
+cp infra/.env.example infra/.env
+# Éditer infra/.env avec vos identifiants
+docker compose -f infra/docker-compose.yml --env-file infra/.env up --build
+```
 
 ### Option 2 : Développement local
 
@@ -249,6 +260,16 @@ Interface conversationnelle via `POST /api/chatops` :
 | `resolve <id>` | Résoudre un incident |
 | `help` | Afficher les commandes disponibles |
 
+### Démo ChatOps dans Teams
+
+Un script de démonstration envoie les commandes ChatOps et poste les réponses dans un canal Teams via webhook entrant :
+
+```powershell
+.\scripts\teams_chatops_demo.ps1 -WebhookUrl "https://xxx.webhook.office.com/..."
+```
+
+Cela crée un flux conversationnel visible dans le canal Teams (commandes utilisateur + réponses du bot).
+
 ---
 
 ## Tests
@@ -346,14 +367,18 @@ observability-platform/
 │   ├── nginx.conf                          # SPA fallback + API proxy
 │   └── package.json
 ├── infra/
-│   ├── docker-compose.yml                 # ES + PostgreSQL + Backend + Frontend + Prometheus
-│   └── prometheus.yml                     # Config scraping
+│   ├── docker-compose.yml                 # ES + PostgreSQL + Backend + Frontend + Prometheus + Grafana
+│   ├── prometheus.yml                     # Config scraping
+│   ├── grafana/                           # Dashboards + provisioning (datasource, dashboards)
+│   └── .env.example                       # Template variables Jira/Teams
 ├── data/
 │   ├── sample/                            # Fichiers de logs pour évaluation
 │   └── annotations/ground_truth.csv       # Vérité terrain
 ├── scripts/
 │   ├── run_evaluation.ps1                 # Script d'évaluation (Windows)
-│   └── run_evaluation.sh                  # Script d'évaluation (Linux/macOS)
+│   ├── run_evaluation.sh                  # Script d'évaluation (Linux/macOS)
+│   ├── load_test.ps1                      # Test de charge (batches bulk)
+│   └── teams_chatops_demo.ps1             # Démo ChatOps dans Teams (webhook)
 ├── docs/                                  # Documentation technique
 ├── .github/workflows/ci.yml              # Pipeline CI
 └── README.md
@@ -373,7 +398,7 @@ observability-platform/
 | `JIRA_BASE_URL` | (placeholder) | incident | URL instance Jira |
 | `JIRA_EMAIL` | — | incident | Email compte Jira |
 | `JIRA_API_TOKEN` | — | incident | Token API Jira |
-| `JIRA_PROJECT_KEY` | `OPS` | incident | Clé projet Jira |
+| `JIRA_PROJECT_KEY` | `OBS` | incident | Clé projet Jira |
 
 ---
 

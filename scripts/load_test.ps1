@@ -4,10 +4,10 @@
 # Usage:
 #   .\scripts\load_test.ps1                          # 10 batches x 100 lignes
 #   .\scripts\load_test.ps1 -Batches 50 -LinesPerBatch 200
-#   .\scripts\load_test.ps1 -BaseUrl http://localhost:8082
+#   .\scripts\load_test.ps1 -BaseUrl http://localhost:8081
 
 param(
-    [string]$BaseUrl = "http://localhost:8082",
+    [string]$BaseUrl = "http://localhost:8081",
     [int]$Batches = 10,
     [int]$LinesPerBatch = 100,
     [int]$HealthTimeoutSec = 30

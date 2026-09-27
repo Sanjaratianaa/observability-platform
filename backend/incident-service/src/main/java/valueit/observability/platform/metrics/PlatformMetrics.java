@@ -11,6 +11,8 @@ public class PlatformMetrics {
     private final Counter incidentsResolved;
     private final Counter notificationsSent;
     private final Counter notificationsFailed;
+    private final Counter anomalyReportsReceived;
+    private final Counter anomalyReportsProcessed;
 
     public PlatformMetrics(MeterRegistry registry) {
         this.incidentsCreated = Counter.builder("obs.incidents.created")
@@ -28,10 +30,18 @@ public class PlatformMetrics {
         this.notificationsFailed = Counter.builder("obs.notifications.failed")
                 .description("Notifications that failed")
                 .register(registry);
+        this.anomalyReportsReceived = Counter.builder("obs.anomaly_reports.received")
+                .description("Anomaly reports accepted for processing")
+                .register(registry);
+        this.anomalyReportsProcessed = Counter.builder("obs.anomaly_reports.processed")
+                .description("Anomaly reports processed")
+                .register(registry);
     }
 
     public void incidentCreated() { incidentsCreated.increment(); }
     public void incidentResolved() { incidentsResolved.increment(); }
     public void notificationSent() { notificationsSent.increment(); }
     public void notificationFailed() { notificationsFailed.increment(); }
+    public void anomalyReportsReceived(int count) { anomalyReportsReceived.increment(count); }
+    public void anomalyReportsProcessed() { anomalyReportsProcessed.increment(); }
 }

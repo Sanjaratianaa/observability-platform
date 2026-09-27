@@ -1,6 +1,7 @@
 package valueit.observability.platform.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 import valueit.observability.platform.dto.AnomalyReport;
 import valueit.observability.platform.metadata.AuditService;
 import valueit.observability.platform.metrics.PlatformMetrics;
@@ -43,6 +44,15 @@ public class IncidentService {
             return updateRecurring(existing.get(), report);
         }
         return createNew(fingerprint, report);
+    }
+
+    @Async("anomalyProcessingExecutor")
+    public void handleBatch(List<AnomalyReport> reports) {
+        metrics.anomalyReportsReceived(reports.size());
+        reports.forEach(report -> {
+            handle(report);
+            metrics.anomalyReportsProcessed();
+        });
     }
 
     private Incident updateRecurring(Incident incident, AnomalyReport report) {

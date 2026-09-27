@@ -64,7 +64,7 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
     if ($Reset) {
         Write-Host "==> Reset : purge des index Elasticsearch"
         try {
-            Invoke-RestMethod -Uri "$EsUrl/logs,incidents" -Method Delete -TimeoutSec 15 | Out-Null
+            Invoke-RestMethod -Uri "$EsUrl/logs,incidents,anomaly-outbox" -Method Delete -TimeoutSec 15 | Out-Null
         } catch { Write-Warning "    Purge ES impossible : $($_.Exception.Message)" }
         Start-Sleep -Seconds 2
     }
@@ -122,16 +122,35 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
         $hits = @($newIncidents | Where-Object { $_.source -eq $f })
         $hit = $hits.Count -gt 0
         if ($hit) { $tp++ } else { $fn++ }
+        $incidentTypeList = @()
+        foreach ($incident in $hits) { $incidentTypeList += $incident.type }
+        $incidentTypes = ""
+        foreach ($type in $incidentTypeList) {
+            if ($incidentTypes -ne "") { $incidentTypes += [char]124 }
+            $incidentTypes += $type
+        }
+        $verdict = "FN"
+        if ($hit) { $verdict = "TP" }
+        $detected = "NO"
+        if ($hit) { $detected = "YES" }
         $detailRows += [pscustomobject]@{
-            file = $f; expected = "INCIDENT"; detected = $(if ($hit) { "YES" } else { "NO" })
-            incident_types = ($hits | ForEach-Object { $_.type }) -join "|"
-            verdict = $(if ($hit) { "TP" } else { "FN" })
+            file = $f; expected = "INCIDENT"; detected = $detected
+            incident_types = $incidentTypes
+            verdict = $verdict
         }
     }
     # Incidents sur des sources non annotees = faux positifs
     foreach ($s in $detectedSources) {
         if ($gtFiles -notcontains $s) {
-            $types = ($newIncidents | Where-Object { $_.source -eq $s } | ForEach-Object { $_.type }) -join "|"
+            $typeList = @()
+            foreach ($incident in $newIncidents) {
+                if ($incident.source -eq $s) { $typeList += $incident.type }
+            }
+            $types = ""
+            foreach ($type in $typeList) {
+                if ($types -ne "") { $types += [char]124 }
+                $types += $type
+            }
             $detailRows += [pscustomobject]@{
                 file = $s; expected = "none"; detected = "YES"; incident_types = $types; verdict = "FP"
             }
@@ -139,16 +158,19 @@ function Invoke-EvalRun([int]$RunIndex, [string]$RunDir) {
     }
     $fp = @($detailRows | Where-Object { $_.verdict -eq "FP" }).Count
 
-    $precision = if (($tp + $fp) -gt 0) { [math]::Round($tp / ($tp + $fp), 3) } else { 0 }
-    $recall    = if (($tp + $fn) -gt 0) { [math]::Round($tp / ($tp + $fn), 3) } else { 0 }
-    $f1        = if (($precision + $recall) -gt 0) { [math]::Round(2 * $precision * $recall / ($precision + $recall), 3) } else { 0 }
+    $precision = 0
+    if (($tp + $fp) -gt 0) { $precision = [math]::Round($tp / ($tp + $fp), 3) }
+    $recall = 0
+    if (($tp + $fn) -gt 0) { $recall = [math]::Round($tp / ($tp + $fn), 3) }
+    $f1 = 0
+    if (($precision + $recall) -gt 0) { $f1 = [math]::Round(2 * $precision * $recall / ($precision + $recall), 3) }
 
     # --- Ecriture des resultats du run -----------------------------------------
     $ingestRows  | Export-Csv (Join-Path $RunDir "ingestion.csv") -NoTypeInformation -Encoding utf8
     $detailRows  | Export-Csv (Join-Path $RunDir "detection.csv") -NoTypeInformation -Encoding utf8
 
     Write-Host ""
-    Write-Host "================ RUN $RunIndex ================"
+    Write-Host "================ RUN ${RunIndex} ================"
     $detailRows | Format-Table -AutoSize
     Write-Host "Nouveaux incidents : $($newIncidents.Count)  |  TP=$tp FP=$fp FN=$fn"
     Write-Host "Precision=$precision  Recall=$recall  F1=$f1"
@@ -189,11 +211,8 @@ if ($Runs -gt 1) {
         f1        = [math]::Round(($f1s  | Measure-Object -StandardDeviation).StandardDeviation, 3)
     })
     Write-Host ""
-    Write-Host "================ AGREGAT ($Runs runs) ================"
-    Write-Host ("Precision moy={0} +/- {1}  Recall moy={2} +/- {3}  F1 moy={4} +/- {5}" -f `
-        $summary.mean.precision, $summary.std.precision, `
-        $summary.mean.recall, $summary.std.recall, `
-        $summary.mean.f1, $summary.std.f1)
+    Write-Host "================ AGREGAT ================"
+    Write-Host "Precision/recall/F1 aggregation written to summary.json"
 }
 $summary | ConvertTo-Json -Depth 5 | Out-File (Join-Path $ResultsDir "summary.json") -Encoding utf8
 Write-Host "Resultats dans : $ResultsDir"

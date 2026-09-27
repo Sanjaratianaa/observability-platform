@@ -10,6 +10,8 @@ import valueit.observability.platform.dto.AnomalyReport;
 import valueit.observability.platform.incident.Incident;
 import valueit.observability.platform.service.IncidentService;
 
+import java.util.List;
+
 /**
  * Endpoint interne appelé par monitoring-service pour chaque anomalie détectée.
  * Non destiné aux clients externes (masqué dans Swagger).
@@ -28,5 +30,11 @@ public class InternalAnomalyController {
     @PostMapping
     public ResponseEntity<Incident> report(@RequestBody AnomalyReport report) {
         return ResponseEntity.ok(incidentService.handle(report));
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<Void> reportBulk(@RequestBody List<AnomalyReport> reports) {
+        incidentService.handleBatch(reports);
+        return ResponseEntity.accepted().build();
     }
 }
