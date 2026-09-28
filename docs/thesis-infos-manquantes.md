@@ -7,6 +7,14 @@ Analyse comparative entre `MémoireITU-v3r3` et l'application réellement implé
 
 ## 📌 ÉTAT D'AVANCEMENT (28 sept. 2026 — basé sur `Last_version_memoire.docx`)
 
+### ✅ Stratégie retenue pour la finalisation
+
+- **Étape 1** : insérer d'abord **toutes les captures et figures restantes**.
+- **Étape 2** : revoir ensuite les **écritures**, les formulations, les transitions et les
+  éventuels allègements de texte.
+- En conséquence, les corrections ci-dessous doivent être lues comme une **checklist de fond**
+  à appliquer, mais la passe de finition rédactionnelle pourra se faire **après l'ajout des visuels**.
+
 ### ✅ Globalement bien aligné / pas prioritaire
 
 - **L'architecture microservices** est bien assumée dans l'ensemble du document.
@@ -91,12 +99,21 @@ Analyse comparative entre `MémoireITU-v3r3` et l'application réellement implé
     avec précision / rappel / F1 par détecteur.
 12. **Fig 9** (§8.4) — résultats de charge seulement si la campagne est réellement exécutée.
 
+**Ordre conseillé pour toi maintenant** :
+
+- insérer toutes les captures de l'application ;
+- vérifier la numérotation et les légendes des figures ;
+- revoir ensuite les paragraphes autour des figures ;
+- faire enfin une passe de nettoyage rédactionnel si le volume devient trop grand.
+
 ### 📝 Conseils de modification minimale
 
 - **Ne pas réécrire tout le mémoire**.
-- Corriger d'abord : **Résumé FR**, **§2.3**, **§5.3.2**, **§7.2.4**, **§2.6**, **§2.7**,
-  puis **§8.4**.
+- Corriger seulement les points de fond les plus sensibles : **Résumé FR**, **§2.3**,
+  **§5.3.2**, **§7.2.4**, **§2.6**, **§2.7**, puis **§8.4**.
 - Ajouter ensuite les captures et mettre à jour les légendes / références de figures.
+- Faire la relecture stylistique et les allègements **après** l'insertion des visuels,
+  afin de voir l'équilibre final texte / figures.
 
 > **Note** : les sections « Prompt 1-9 » plus bas servent de **référence** (contenu
 > exact des figures + textes). Ne pas supprimer — nécessaires pour rédiger les
