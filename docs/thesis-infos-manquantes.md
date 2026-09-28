@@ -5,62 +5,98 @@ Analyse comparative entre `MémoireITU-v3r3` et l'application réellement implé
 
 ---
 
-## 📌 ÉTAT D'AVANCEMENT (25 sept. 2026 — docx vérifié après mise à jour)
+## 📌 ÉTAT D'AVANCEMENT (28 sept. 2026 — basé sur `Last_version_memoire.docx`)
 
-### ✅ FAIT — vérifié dans le .docx
+### ✅ Globalement bien aligné / pas prioritaire
 
-- **Légendes des 10 figures** placées
-- **§5.1.1 corrigé** — déduplication par fingerprint ES
-- **§1.2 reformulé** — détection reproduite par le module monitoring (outils internes en prod)
-- **§7.2.3 réécrit** — ES + PostgreSQL + dédup
-- **Glossaire complet** — fingerprint, Grafana, Prometheus, ChatOps, CI/CD, webhook, timeout…
-- **§5.3** — mentionne les 5 vues (Dashboard, Logs, Incidents, ChatOps, Audit)
-- **Figures dessinées et insérées** : Fig 3 (§6.1), Fig 4 (§6.2, validée), Fig 5 (§7.2.3),
-  Fig 6 (§7.2.4, validée), Fig 7 (§7.2.4, états), Fig 8 (§7.2.4, pivotée 90°)
+- **L'architecture microservices** est bien assumée dans l'ensemble du document.
+- **La liste des figures** va jusqu'à la figure 10, ce qui est cohérent avec le plan actuel.
+- **La présence d'une interface web** est déjà mieux reflétée qu'avant.
+- **Le module de monitoring du prototype** est bien présenté comme la reproduction du rôle
+  de détection assuré par les outils internes en production.
+- **Le glossaire** est déjà enrichi avec les notions importantes (`fingerprint`,
+  `Prometheus`, `Grafana`, `ChatOps`, `CI/CD`).
+- **La structure générale du mémoire** est exploitable : il ne faut pas tout réécrire,
+  seulement corriger quelques zones sensibles.
 
-### 🔴 INCOHÉRENCES à corriger (le texte contredit le mécanisme réel)
+### 🔴 Corrections prioritaires à faire dans le .docx
 
-1. **§7.2.4 « Détection et création automatique d'un ticket »** — dit encore
-   « vérifie si un ticket correspondant existe déjà **dans Jira** » → reprendre le texte
-   fingerprint ES de §5.1.1.
-2. **§5.3.2** — « Jira : utilisé pour **rechercher les tickets existants** » → Jira ne sert
-   qu'à créer/commenter ; la recherche de doublons est dans Elasticsearch.
-3. **§2.3** — « L'API REST de Jira est utilisée pour… **vérifier si un incident similaire
-   a déjà été signalé** » → même correction (dédup dans ES, Jira = création/commentaire).
+1. **Résumé français à corriger**
+   - Le texte est encore tronqué : « notifications instantanées sur Microsoft … ».
+   - Il faut écrire explicitement **Microsoft Teams** et ajouter l'idée d'**interface
+     conversationnelle**.
+   - Formulation minimale à insérer :
+     > l'envoi de notifications instantanées sur Microsoft Teams et une interface
+     > conversationnelle permettant de consulter l'état de l'infrastructure sans ouvrir
+     > les outils de monitoring existants.
 
-### 🐛 Bugs de texte
+2. **§2.3 — Jira ne fait pas la déduplication**
+   - Le texte laisse encore entendre que Jira sert à vérifier si un incident similaire
+     a déjà été signalé.
+   - À corriger par : déduplication dans **Elasticsearch** via un **fingerprint** construit
+     à partir de `type::source` ; Jira sert seulement à **créer** ou **commenter** un ticket.
 
-4. **Résumé FR tronqué** — « …notifications instantanées sur Microsoft sans ouvrir les
-   outils de monitoring existants » : il manque « **Teams**, et une interface
-   conversationnelle… » (la version EN est complète, pas la FR).
-5. **§5.1.1** — typo : « monitoring-service **ka** transmet » → « la ».
+3. **§5.3.2 — même correction que §2.3**
+   - Ne pas écrire que Jira est utilisé pour rechercher des tickets existants.
+   - Remplacer par : Elasticsearch = corrélation/déduplication ; Jira = ticketing.
 
-### ⬜ RESTE À FAIRE
+4. **§7.2.4 — harmoniser le scénario principal**
+   - Cette section doit raconter le vrai flux :
+     anomalie détectée → `AnomalyReport` → fingerprint `type::source` → recherche d'un
+     incident `OPEN` ou `ACKNOWLEDGED` → mise à jour ou création → ticket/commentaire Jira
+     → notification Teams.
+   - Si le texte parle encore de vérification du doublon dans Jira, il faut le remplacer.
 
-**Nécessite l'app lancée** (`docker compose up` dans `infra/`) :
+5. **§5.1.1 — vérifier l'harmonisation avec les sections ci-dessus**
+   - Cette section semble plus proche du mécanisme réel qu'avant, mais elle doit rester
+     cohérente avec **§2.3**, **§5.3.2** et **§7.2.4**.
+   - Si une formulation ambiguë subsiste, reprendre la version fingerprint ES.
 
-6. **Fig 1 + Fig 2** (§5.3.1) — captures Dashboard + Incidents (`http://localhost:8090`).
-7. **Fig 10** (§9) — `scripts/run_evaluation.ps1` → P/R/F1 par détecteur. **Priorité max.**
-8. **Fig 9** (§8.4) — script de charge (N × `POST /api/logs/bulk`) → débit + temps de réponse.
+6. **§2.6 — reformuler le CI/CD comme existant, pas comme prévu**
+   - Le projet dispose déjà d'une base de **CI/CD avec GitHub Actions**.
+   - À citer : build backend Maven multi-module, build frontend, validation Docker Compose.
 
-**Texte à compléter dans le .docx** :
+7. **§2.7 — ne pas présenter le rate limiting / la file d'attente comme implémentés**
+   - Dans l'état actuel, il faut plutôt parler de : appels asynchrones, isolation de panne,
+     persistance temporaire de type outbox, tentatives de réémission.
+   - La limitation de débit ou une file dédiée doivent rester dans les **perspectives**.
 
-9. **§5.3.1** — le texte dit encore « l'interface principale est le ChatOps » alors que
-   §5.3 cite les 5 vues → décrire le dashboard React (React 19 + nginx proxy).
-10. **§5.3.2** — ajouter le tableau des endpoints REST (contenu dans « Prompt 9 »).
-11. **§7.1.2** — stack réelle : Spring Boot 4.1.0, Java 21, ES 9.0.0, PostgreSQL 16,
-    React 19, Prometheus, Grafana, Maven multi-module.
-12. **§6.2** — le texte ne cite que « quatre éléments » : ajouter frontend/nginx,
-    PostgreSQL, Prometheus, Grafana (cohérent avec la Fig 4 à 8 conteneurs).
-13. **§7.2.x** — méta-observabilité (`/actuator/prometheus` → Grafana), audit JPA,
-    Swagger par service, `GlobalExceptionHandler`, CORS.
-14. **§8** — tableau des 65 tests par module + CI GitHub Actions ; §8.4 est encore
-    au futur (« sont prévus ») → passer au résultat quand la charge est faite.
-15. **§9.3** — ajouter : auth sur les API, file d'attente/rate limiting, retry/circuit
-    breaker, Kubernetes, Kibana optionnel.
-16. **Résumé/Abstract** — après fix n°4 : mentionner dashboard + fingerprint + chiffres
-    d'évaluation (quand dispo).
-17. **Annexe** — extrait `docker-compose.yml`, payload `AnomalyReport`, exemples de logs.
+8. **§8.4 — choisir entre “préparé” et “exécuté”**
+   - La section “tests de charge” ne doit pas mélanger :
+     - un protocole encore préparé,
+     - et des résultats présentés comme déjà obtenus.
+   - Si les tests ne sont pas encore lancés, garder une formulation prudente et ne pas
+     annoncer de résultats comme acquis.
+
+9. **§5.3.1 — éviter de présenter ChatOps comme unique interface principale**
+   - Le mémoire doit rappeler clairement qu'il existe aussi un **dashboard web React**.
+   - Cette correction devient encore plus importante lorsque les captures Dashboard et
+     Incidents seront insérées.
+
+### ✂️ Allègements possibles sans dénaturer le mémoire
+
+- **Raccourcir légèrement l'état de l'art**, sans le supprimer : condenser les définitions
+  trop générales et les comparaisons trop longues.
+- **Supprimer les répétitions** sur Jira, Teams, Elasticsearch, ChatOps et la déduplication.
+- **Déplacer en annexe** les détails trop longs (endpoints complets, extraits techniques,
+  exemples secondaires) si tu as besoin de place pour les captures.
+- **Éviter les formulations au futur** non essentielles dans les parties descriptives.
+
+### ⬜ Figures / captures restantes à insérer
+
+**Nécessite l'application lancée** (`docker compose up` dans `infra/`) :
+
+10. **Fig 1 + Fig 2** (§5.3.1) — captures Dashboard + Incidents (`http://localhost:8090`).
+11. **Fig 10** (§9 ou §8 selon placement final) — résultats de `scripts/run_evaluation.ps1`
+    avec précision / rappel / F1 par détecteur.
+12. **Fig 9** (§8.4) — résultats de charge seulement si la campagne est réellement exécutée.
+
+### 📝 Conseils de modification minimale
+
+- **Ne pas réécrire tout le mémoire**.
+- Corriger d'abord : **Résumé FR**, **§2.3**, **§5.3.2**, **§7.2.4**, **§2.6**, **§2.7**,
+  puis **§8.4**.
+- Ajouter ensuite les captures et mettre à jour les légendes / références de figures.
 
 > **Note** : les sections « Prompt 1-9 » plus bas servent de **référence** (contenu
 > exact des figures + textes). Ne pas supprimer — nécessaires pour rédiger les
