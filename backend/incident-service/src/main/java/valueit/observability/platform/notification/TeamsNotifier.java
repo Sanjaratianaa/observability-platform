@@ -50,16 +50,7 @@ public class TeamsNotifier implements Notifier {
             return;
         }
 
-        ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("@type", "MessageCard");
-        payload.put("themeColor", severityToColor(incident.getSeverity()));
-        payload.put("title", "🚨 " + incident.getType());
-        payload.put("text", incident.getDescription());
-        var facts = payload.putArray("sections").addObject().putArray("facts");
-        facts.addObject().put("name", "Sévérité").put("value", String.valueOf(incident.getSeverity()));
-        facts.addObject().put("name", "Source").put("value", incident.getSource());
-        facts.addObject().put("name", "Occurrences").put("value", String.valueOf(incident.getOccurrenceCount()));
-        facts.addObject().put("name", "Première vue").put("value", String.valueOf(incident.getFirstSeen()));
+        ObjectNode payload = buildPayload(incident);
 
         try {
             restClient.post()
@@ -74,12 +65,89 @@ public class TeamsNotifier implements Notifier {
         }
     }
 
+    /**
+     * Workflows / Power Automate webhooks (logic.azure.com) require an
+     * Adaptive Card payload. Legacy Office connectors (webhook.office.com)
+     * use MessageCard.
+     */
+    private ObjectNode buildPayload(Incident incident) {
+        if (webhookUrl.contains("logic.azure.com") || webhookUrl.contains("powerautomate")) {
+            return buildAdaptiveCard(incident);
+        }
+        return buildMessageCard(incident);
+    }
+
+    private ObjectNode buildMessageCard(Incident incident) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("@type", "MessageCard");
+        payload.put("themeColor", severityToColor(incident.getSeverity()));
+        payload.put("title", "🚨 " + incident.getType());
+        payload.put("text", incident.getDescription());
+        var facts = payload.putArray("sections").addObject().putArray("facts");
+        facts.addObject().put("name", "Sévérité").put("value", String.valueOf(incident.getSeverity()));
+        facts.addObject().put("name", "Source").put("value", incident.getSource());
+        facts.addObject().put("name", "Occurrences").put("value", String.valueOf(incident.getOccurrenceCount()));
+        facts.addObject().put("name", "Première vue").put("value", String.valueOf(incident.getFirstSeen()));
+        return payload;
+    }
+
+    private ObjectNode buildAdaptiveCard(Incident incident) {
+        var body = objectMapper.createArrayNode();
+
+        var title = objectMapper.createObjectNode();
+        title.put("type", "TextBlock");
+        title.put("text", "🚨 " + incident.getType());
+        title.put("weight", "Bolder");
+        title.put("size", "Large");
+        title.put("color", severityToAdaptiveColor(incident.getSeverity()));
+        body.add(title);
+
+        var desc = objectMapper.createObjectNode();
+        desc.put("type", "TextBlock");
+        desc.put("text", incident.getDescription());
+        desc.put("wrap", true);
+        body.add(desc);
+
+        var factSet = objectMapper.createObjectNode();
+        factSet.put("type", "FactSet");
+        var facts = factSet.putArray("facts");
+        facts.addObject().put("title", "Sévérité").put("value", String.valueOf(incident.getSeverity()));
+        facts.addObject().put("title", "Source").put("value", incident.getSource());
+        facts.addObject().put("title", "Occurrences").put("value", String.valueOf(incident.getOccurrenceCount()));
+        facts.addObject().put("title", "Première vue").put("value", String.valueOf(incident.getFirstSeen()));
+        body.add(factSet);
+
+        ObjectNode card = objectMapper.createObjectNode();
+        card.put("$schema", "http://adaptivecards.io/schemas/adaptive-card.json");
+        card.put("type", "AdaptiveCard");
+        card.put("version", "1.4");
+        card.set("body", body);
+
+        ObjectNode attachment = objectMapper.createObjectNode();
+        attachment.put("contentType", "application/vnd.microsoft.card.adaptive");
+        attachment.set("content", card);
+
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("type", "message");
+        payload.putArray("attachments").add(attachment);
+        return payload;
+    }
+
     private String severityToColor(Severity severity) {
         return switch (severity) {
             case CRITICAL -> "FF0000";
             case HIGH -> "FF6600";
             case MEDIUM -> "FFAA00";
             case LOW -> "00AA00";
+        };
+    }
+
+    private String severityToAdaptiveColor(Severity severity) {
+        return switch (severity) {
+            case CRITICAL -> "Attention";
+            case HIGH -> "Warning";
+            case MEDIUM -> "Accent";
+            case LOW -> "Good";
         };
     }
 }

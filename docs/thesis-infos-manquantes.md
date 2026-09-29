@@ -1104,3 +1104,62 @@ p. 23). Voici quoi mettre dans chaque section et où placer les nouvelles figure
 | §9 | Résultats évaluation P/R/F1 | à générer |
 
 Total : **~8 figures + 2 tableaux** — cohérent pour un M2 sans surcharge.
+
+---
+
+## 🏢 Tâches réalisables au bureau (SANS Docker)
+
+### 1. Corrections du mémoire (.docx)
+Reprendre les **9 corrections prioritaires** listées dans la section "🔴 Corrections prioritaires" ci-dessus :
+- Résumé français tronqué (ajouter "Microsoft Teams")
+- §2.3 et §5.3.2 : Jira ≠ déduplication → fingerprint ES
+- §7.2.4 : harmoniser le scénario principal
+- §2.6 : CI/CD = GitHub Actions (existant, pas prévu)
+- §2.7 : reformuler rate limiting → async + outbox (perspectives)
+- §8.4 : prudence sur les résultats de charge (pas encore exécutés)
+- §5.3.1 : mentionner le dashboard React (pas seulement ChatOps)
+
+### 2. Création des slides de soutenance
+Voir `docs/slide-guide.md` pour la structure complète (20 slides).
+Tout le texte et les schémas peuvent être faits sans Docker.
+Laisser des **placeholders vides** pour les captures d'écran.
+
+### 3. Dessiner les schémas d'architecture
+En utilisant PowerPoint shapes ou draw.io :
+- **Architecture globale** : 8 conteneurs + flèches (Prompt 1 ci-dessus)
+- **Pipeline de traitement** : flux Log → Parse → Detect → Incident → Notify (Prompt 2)
+- **Cycle de vie incident** : OPEN → ACKNOWLEDGED → RESOLVED (Prompt 4)
+- **Modèle de données** : LogEntry, Incident, AuditLog, NotificationRecord (Prompt 6)
+
+Les données exactes pour chaque schéma sont dans les sections "Prompt" de ce document.
+
+### 4. Relire et alléger le mémoire
+- Raccourcir l'état de l'art (condenser les comparaisons trop longues)
+- Supprimer les répétitions sur Jira/Teams/ES
+- Déplacer en annexe les détails trop techniques
+- Passer les formulations au futur → au présent/passé
+
+### 5. Préparer les notes de présentation
+- Rédiger les talking points pour chaque slide
+- Préparer les réponses aux questions du jury :
+  - "Pourquoi pas Kafka ?" → scope M2, REST suffisant, Kafka en perspective
+  - "Pourquoi fingerprint et pas ML ?" → déterministe, explicable, rapide
+  - "Comment scale ?" → microservices indépendants, Docker, horizontal scaling possible
+  - "Sécurité ?" → secrets en env vars, auth Basic Jira, CORS configuré
+
+### 6. Rédiger le README.md final
+Le contenu est dans ce document — structure suggérée :
+- Titre + description courte
+- Architecture (lien vers le schéma)
+- Prérequis (Docker, Java 21, Node 20)
+- Quick start (`docker compose up -d`)
+- Endpoints API (tableau déjà prêt ci-dessus)
+- Tests (`mvnw verify`)
+- Évaluation (`run_evaluation.ps1`)
+
+### ⚠️ Ce qui NÉCESSITE Docker (à faire à la maison)
+- Les 14 captures d'écran (voir `docs/demo-scenario.md`)
+- L'enregistrement vidéo de démo
+- L'exécution de `run_evaluation.ps1 -Reset -Runs 3` (résultats P/R/F1)
+- L'exécution de `load_test.ps1` (résultats débit/latence)
+- Le test Teams webhook (`teams_chatops_demo.ps1`)

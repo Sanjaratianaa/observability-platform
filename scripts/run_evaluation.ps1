@@ -13,7 +13,7 @@
 # incident-service (8082) = incidents + notifications + audit.
 
 param(
-    [string]$MonitoringUrl = "http://localhost:8081",
+    [string]$MonitoringUrl = "http://localhost:8085",
     [string]$IncidentUrl = "http://localhost:8082",
     [string]$EsUrl = "http://localhost:9200",
     [switch]$StartStack,

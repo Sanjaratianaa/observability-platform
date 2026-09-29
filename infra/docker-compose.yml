@@ -15,7 +15,8 @@ services:
       test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 60s
 
   # --- PostgreSQL (metadata) ---
   postgres:
@@ -48,7 +49,7 @@ services:
       - INCIDENT_SERVICE_URL=http://incident-service:8082
       - SERVER_PORT=8081
     ports:
-      - "8081:8081"
+      - "8085:8081" # Host port 8085 (8081 reserved by Windows http.sys on some machines)
     depends_on:
       elasticsearch:
         condition: service_healthy

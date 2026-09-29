@@ -10,7 +10,7 @@ set -euo pipefail
 #   bash scripts/run_evaluation.sh --start-stack   # demarre docker compose d'abord
 #   MONITORING_URL=http://localhost:8081 INCIDENT_URL=http://localhost:8082 bash scripts/run_evaluation.sh
 
-MONITORING_URL="${MONITORING_URL:-http://localhost:8081}"
+MONITORING_URL="${MONITORING_URL:-http://localhost:8085}"
 INCIDENT_URL="${INCIDENT_URL:-http://localhost:8082}"
 START_STACK="${1:-}"
 HEALTH_TIMEOUT=90

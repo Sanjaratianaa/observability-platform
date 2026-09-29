@@ -7,7 +7,7 @@
 #   .\scripts\load_test.ps1 -BaseUrl http://localhost:8081
 
 param(
-    [string]$BaseUrl = "http://localhost:8081",
+    [string]$BaseUrl = "http://localhost:8085",
     [int]$Batches = 10,
     [int]$LinesPerBatch = 100,
     [int]$HealthTimeoutSec = 30

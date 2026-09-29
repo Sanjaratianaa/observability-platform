@@ -33,21 +33,46 @@ function Send-TeamsCard {
     param(
         [string]$Title,
         [string]$Text,
-        [string]$Color = "0076D7",
+        [string]$Color = "Accent",
         [hashtable[]]$Facts = @()
     )
-    $sections = @(@{ activityTitle = $Title; text = $Text; markdown = $true })
+    # Adaptive Card body
+    $body = @(
+        @{
+            type   = "TextBlock"
+            text   = $Title
+            weight = "Bolder"
+            size   = "Medium"
+            color  = $Color
+            wrap   = $true
+        },
+        @{
+            type = "TextBlock"
+            text = $Text
+            wrap = $true
+        }
+    )
     if ($Facts.Count -gt 0) {
-        $sections[0]["facts"] = $Facts
+        $body += @{
+            type  = "FactSet"
+            facts = @($Facts | ForEach-Object { @{ title = $_.name; value = $_.value } })
+        }
     }
     $card = @{
-        "@type"      = "MessageCard"
-        "@context"   = "http://schema.org/extensions"
-        themeColor   = $Color
-        summary      = $Title
-        sections     = $sections
+        type    = "AdaptiveCard"
+        version = "1.4"
+        body    = $body
     }
-    $json = $card | ConvertTo-Json -Depth 10 -Compress
+    $payload = @{
+        type        = "message"
+        attachments = @(
+            @{
+                contentType = "application/vnd.microsoft.card.adaptive"
+                content     = $card
+            }
+        )
+    }
+    $json = $payload | ConvertTo-Json -Depth 15 -Compress
     try {
         Invoke-RestMethod -Uri $WebhookUrl -Method Post -Body $json `
             -ContentType "application/json; charset=utf-8" -TimeoutSec 15 | Out-Null
@@ -59,7 +84,7 @@ function Send-TeamsCard {
 function Send-UserCommand {
     param([string]$Command)
     Send-TeamsCard -Title "👤 Commande utilisateur" `
-        -Text "``$Command``" -Color "6264A7"
+        -Text $Command -Color "Accent"
     Start-Sleep -Seconds 1
 }
 
@@ -71,7 +96,7 @@ function Send-BotResponse {
     # Formatte la reponse pour Teams (remplace les retours a la ligne)
     $formatted = $Response -replace "`r`n", "<br>" -replace "`n", "<br>"
     Send-TeamsCard -Title "🤖 Observability Bot" `
-        -Text $formatted -Color "00AA00" `
+        -Text $formatted -Color "Good" `
         -Facts @(
             @{ name = "Commande"; value = $Command }
         )
@@ -120,7 +145,7 @@ Write-Host ""
 
 Send-TeamsCard -Title "🚀 Observability Platform — ChatOps" `
     -Text "Session de supervision interactive demarree. Tapez une commande pour interagir avec la plateforme d'observabilite." `
-    -Color "6264A7" `
+    -Color "Accent" `
     -Facts @(
         @{ name = "Plateforme"; value = "Observability Platform v1.0" }
         @{ name = "Services"; value = "monitoring (8081) | incident (8082) | chatops (8083)" }
@@ -163,7 +188,7 @@ try {
     } else {
         Write-Host "    Aucun incident OPEN, skip ack"
         Send-TeamsCard -Title "🤖 Observability Bot" `
-            -Text "Aucun incident ouvert a acquitter." -Color "FFAA00"
+            -Text "Aucun incident ouvert a acquitter." -Color "Warning"
     }
 } catch {
     Write-Warning "    Erreur listing incidents : $($_.Exception.Message)"
@@ -183,7 +208,7 @@ try {
     } else {
         Write-Host "    Aucun incident ACKNOWLEDGED, skip resolve"
         Send-TeamsCard -Title "🤖 Observability Bot" `
-            -Text "Aucun incident acquitte a resoudre." -Color "FFAA00"
+            -Text "Aucun incident acquitte a resoudre." -Color "Warning"
     }
 } catch {
     Write-Warning "    Erreur listing incidents : $($_.Exception.Message)"
@@ -193,7 +218,7 @@ Start-Sleep -Seconds $DelayBetweenSec
 # --- Carte de fin ------------------------------------------------------------
 Send-TeamsCard -Title "✅ Demo ChatOps terminee" `
     -Text "Toutes les commandes ont ete executees. La plateforme d'observabilite est operationnelle." `
-    -Color "00AA00" `
+    -Color "Good" `
     -Facts @(
         @{ name = "Commandes executees"; value = "help, stats, list, ack, resolve" }
         @{ name = "Dashboard"; value = "http://localhost:8090" }
