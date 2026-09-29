@@ -1,5 +1,12 @@
 # Guide de création des slides de soutenance
 
+> **2 présentations à préparer :**
+> 1. **Slides de soutenance** (ce fichier) — ~20 slides, présentation du projet
+> 2. **Slides de démo live** (`docs/slide-demo-live.md`) — ~17 slides, guide la démo en direct le jour J
+>
+> Les deux peuvent être créées au bureau sans Docker. Seules les captures
+> d'écran (placeholders) seront ajoutées à la maison.
+
 Tu peux faire ce travail au bureau **sans Docker** — il faut juste le contenu du projet
 (ton repo sur OneDrive) et un outil de slides (PowerPoint/Google Slides).
 
